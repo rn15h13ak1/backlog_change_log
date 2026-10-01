@@ -86,7 +86,15 @@ cp .env.example .env
 
 ## 使い方
 
-まず `--dry-run` で、投稿される内容を確かめます。投稿はしません。
+初めて使うスペースでは、先に `check_api.py` で、API の応答が本ツールの前提どおりかを確かめます。読み取りだけで、投稿はしません。課題の件名やコメントの本文は表示せず、項目名と件数だけを表示します。
+
+```bash
+.venv/bin/python check_api.py
+```
+
+確かめるのは、担当者の変更が `assigner` として返るか、コメントの本文の場所、一括更新の形、各アクティビティに課題の ID・番号・件名があるか、です。期間内に担当者の変更や一括更新が無いと確かめられないので、そのときは `--days 30` のように期間を延ばします。前提と違う応答があれば、終了コード `1` を返します。
+
+次に `--dry-run` で、投稿される内容を確かめます。投稿はしません。
 
 ```bash
 .venv/bin/python backlog_change_log.py --dry-run
@@ -117,6 +125,7 @@ cp .env.example .env
 | ファイル | 役割 |
 |---|---|
 | `backlog_change_log.py` | 入口（引数の解釈、設定の読み込み） |
+| `check_api.py` | API の応答が前提どおりかを確かめる（読み取りだけ） |
 | `change_log/runner.py` | 通しの処理 |
 | `change_log/client.py` | Backlog API（GET はリトライする。POST はしない） |
 | `change_log/marker.py` | `対象日:` の行、出力済みの最新の日、出力する日の決定 |
@@ -125,6 +134,7 @@ cp .env.example .env
 | `change_log/render.py` | コメント本文（マークダウン / Backlog 記法）と分割 |
 | `change_log/config.py` | 設定ファイルと API キー |
 | `change_log/runtime.py` | Python の版と依存の確認（3.9 でも読める書き方に保つ） |
+| `change_log/diagnose.py` | `check_api.py` の中身 |
 
 ## 開発
 

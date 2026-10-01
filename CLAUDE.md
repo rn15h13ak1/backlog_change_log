@@ -8,7 +8,7 @@
 分けてある。入口と同じ名前のパッケージにすると、setuptools と mypy が同名のモジュールを
 取り違えるため、パッケージ名は `change_log` にしている。
 
-入口（`backlog_change_log.py`）は、ほかの import より先に
+入口（`backlog_change_log.py` / `check_api.py`）は、ほかの import より先に
 `change_log/runtime.py` で Python の版と依存を確かめる。**`runtime.py` は 3.9 でも読める書き方に
 保つ**（`str | None` などを使わない）。崩すと、古い Python で案内が出る前に落ちる。
 

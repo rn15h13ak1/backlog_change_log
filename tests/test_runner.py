@@ -38,7 +38,7 @@ def _issues():
 def test_first_run_posts_yesterday_only_and_prints_today():
     client = FakeClient(_base_activities(), _issues())
     code, out, _ = _run(client)
-    assert code == 0
+    assert code == 0   # 出力しなかった日は無い
     assert len(client.posted) == 1
     body = client.posted[0]
     assert parse_marker(body).isoformat() == "2026-09-30"
@@ -73,10 +73,11 @@ def test_reads_only_until_latest_marker():
 
 def test_more_than_seven_days_skips_older_and_does_not_revisit():
     client = FakeClient(_base_activities(), _issues(), comments=[record_comment("対象日: 2026-09-20")])
-    _, _, err = _run(client)
+    code, _, err = _run(client)
+    assert code == 3
     assert [parse_marker(b).isoformat() for b in client.posted] == [f"2026-09-{d}" for d in range(24, 31)]
     assert "2026-09-21〜2026-09-23 は上限 7 日を超えた" in err
-    _run(client)
+    assert _run(client)[0] == 0   # 次の実行では出力しなかった日を持ち越さない
     assert len(client.posted) == 7
 
 
@@ -104,7 +105,8 @@ def test_days_beyond_available_activities_are_not_posted():
     acts = [updated("2026-09-29 12:00", 1, 98, "帳票", [change("status", "a", "b")]),
             updated("2026-09-30 10:00", 1, 98, "帳票", [change("status", "b", "c")])]
     client = FakeClient(acts, _issues(), comments=[record_comment("対象日: 2026-09-27")])
-    _, _, err = _run(client)
+    code, _, err = _run(client)
+    assert code == 3
     assert [parse_marker(b).isoformat() for b in client.posted] == ["2026-09-30"]
     assert "2026-09-28〜2026-09-29 はアクティビティを遡りきれず" in err
 
@@ -129,7 +131,8 @@ def test_day_with_malformed_activity_is_not_posted():
     from tests.fakes import act
     broken = act(2, "2026-09-29 12:00", {"key_id": 5, "summary": "x"})   # content.id が無い
     client = FakeClient(_base_activities() + [broken], _issues(), comments=[record_comment("対象日: 2026-09-27")])
-    _, _, err = _run(client)
+    code, _, err = _run(client)
+    assert code == 3
     assert [parse_marker(b).isoformat() for b in client.posted] == ["2026-09-28", "2026-09-30"]
     assert "想定と違う形のアクティビティが 1 件" in err
     assert "2026-09-29 は変更が欠けている可能性" in err
@@ -139,7 +142,15 @@ def test_undated_malformed_activity_stops_all_days():
     client = FakeClient(_base_activities(), _issues(), comments=[record_comment("対象日: 2026-09-27")])
     client.activities.append({"id": 9999, "type": 2, "created": "2099-01-01T00:00:00Z", "content": None})
     client.activities.append({"id": 9998, "type": 2, "content": {"id": 1}})  # 日時が無い
-    _, out, err = _run(client)
+    code, out, err = _run(client)
+    assert code == 3
     assert client.posted == []
     assert "2026-09-28〜2026-09-30 は変更が欠けている可能性" in err
     assert "当日の変更" in out   # 当日分の表示は続ける
+
+
+def test_post_failure_wins_over_days_not_output():
+    client = FakeClient(_base_activities(), _issues(), comments=[record_comment("対象日: 2026-09-20")],
+                        fail_post_at=0)
+    code, _, _ = _run(client)
+    assert code == 1

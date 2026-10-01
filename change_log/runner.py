@@ -33,9 +33,20 @@ def _render(d: date, start: datetime, end: datetime, events: list[Event], curren
     return render_day(d, project_key, changes, fmt, **kwargs)
 
 
+#: 終了コード。1 は投稿や API の失敗、2 は実行環境の不足（change_log.runtime）
+EXIT_OK = 0
+EXIT_FAILED = 1
+EXIT_DAYS_NOT_OUTPUT = 3   # 出力しなかった日がある（上限超え・遡りきれない・形の違う応答）
+
+
 def run(client: Client, issue_key: str, *, now: datetime | None = None,
         dry_run: bool = False, out: TextIO = sys.stdout, err: TextIO = sys.stderr) -> int:
-    """終了コードを返す（0: 正常、1: 投稿に失敗した）"""
+    """
+    終了コードを返す。
+
+    出力しなかった日があれば EXIT_DAYS_NOT_OUTPUT を返す。警告を表示するだけだと、定期実行で
+    誰も見ないまま記録が抜けるため。投稿に失敗したときは EXIT_FAILED を優先する。
+    """
     now = (now or datetime.now(JST)).astimezone(JST)
     today = now.date()
 
@@ -51,6 +62,7 @@ def run(client: Client, issue_key: str, *, now: datetime | None = None,
     latest = find_latest_recorded(client.iter_comments_desc(record["id"]), myself["id"])
     dates, skipped = decide_target_dates(latest, today)
     print(f"出力済みの最新の日: {latest.isoformat() if latest else 'なし（初回）'}", file=out)
+    not_output = bool(skipped)
     if skipped:
         print(f"⚠ {_fmt_dates(skipped)} は上限 {MAX_CATCHUP_DAYS} 日を超えたため出力しません。", file=err)
 
@@ -72,6 +84,7 @@ def run(client: Client, issue_key: str, *, now: datetime | None = None,
             print(f"⚠ {_fmt_dates(incomplete)} はアクティビティを遡りきれず、不完全な可能性があるため"
                   "出力しません。", file=err)
             dates = [d for d in dates if d not in incomplete]
+            not_output = True
 
     # 形の違うアクティビティがあった日は、変更が欠けているので出力しない。
     # 日時も読めなかったものがあれば、どの日のものか分からないため、すべての日を止める。
@@ -86,6 +99,7 @@ def run(client: Client, issue_key: str, *, now: datetime | None = None,
         if broken_days:
             print(f"⚠ {_fmt_dates(broken_days)} は変更が欠けている可能性があるため出力しません。", file=err)
             dates = [d for d in dates if d not in broken_days]
+            not_output = True
 
     # 4〜5. 担当者・件名の逆算に使う、現在の課題
     issue_ids = sorted({ev.issue_id for ev in events})
@@ -108,7 +122,7 @@ def run(client: Client, issue_key: str, *, now: datetime | None = None,
             except Exception as e:  # noqa: BLE001 - どの失敗でも残りの日は次回に回す
                 print(f"エラー: {d.isoformat()} のコメントの投稿に失敗しました: {e}", file=err)
                 print("  残りの日は次回の実行で出力されます。", file=err)
-                return 1
+                return EXIT_FAILED
         print(f"{d.isoformat()} のコメントを投稿しました。", file=out)
 
     # 7. 当日分は標準出力のみ
@@ -117,4 +131,4 @@ def run(client: Client, issue_key: str, *, now: datetime | None = None,
                            title_note=note, with_marker=False, max_chars=10**9)
     print("\n===== 当日の変更（コメントには書きません）=====", file=out)
     print(today_bodies[0], file=out)
-    return 0
+    return EXIT_DAYS_NOT_OUTPUT if not_output else EXIT_OK

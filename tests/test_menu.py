@@ -181,10 +181,10 @@ def _config(tmp_path, body):
 def test_describe_setup(tmp_path):
     path = _config(tmp_path, 'backlog:\n  space_host: "x.backlog.com"\n'
                              'target:\n  issue_key: "ABC-1"\n  project_keys: [ABC, OTHER]\n')
-    (tmp_path / ".env").write_text("BACKLOG_API_KEY=real-secret\n", encoding="utf-8")
+    (tmp_path / ".env").write_text("BACKLOG_API_KEY=DUMMY_KEY_IN_DOTENV\n", encoding="utf-8")
     lines = menu.describe_setup(path, env={})
     assert lines == ["接続先    : x.backlog.com", "記録先    : ABC-1", "追跡      : ABC, OTHER", "API キー  : 設定済み"]
-    assert "real-secret" not in "".join(lines)
+    assert "DUMMY_KEY_IN_DOTENV" not in "".join(lines)
 
 
 def test_describe_setup_shows_what_is_missing(tmp_path, monkeypatch):
@@ -209,8 +209,8 @@ def test_describe_setup_finds_api_key_in_config(tmp_path, monkeypatch):
     from change_log import config
     monkeypatch.setattr(config, "REPO_ROOT", tmp_path / "repo")
     monkeypatch.chdir(tmp_path)
-    path = _config(tmp_path, 'backlog:\n  space_host: "x.backlog.com"\n  api_key: "secret-in-config"\n'
+    path = _config(tmp_path, 'backlog:\n  space_host: "x.backlog.com"\n  api_key: "DUMMY_KEY_IN_CONFIG"\n'
                              'target:\n  issue_key: "ABC-1"\n')
     lines = menu.describe_setup(path, env={})
     assert lines[3] == "API キー  : 設定済み"
-    assert "secret-in-config" not in "".join(lines)
+    assert "DUMMY_KEY_IN_CONFIG" not in "".join(lines)

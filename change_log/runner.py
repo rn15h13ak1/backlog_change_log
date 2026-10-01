@@ -37,6 +37,7 @@ def _render(d: date, start: datetime, end: datetime, events: list[Event], curren
 EXIT_OK = 0
 EXIT_FAILED = 1
 EXIT_DAYS_NOT_OUTPUT = 3   # 出力しなかった日がある（上限超え・遡りきれない・形の違う応答）
+EXIT_ALREADY_RUNNING = 4   # 同じ記録先への実行が、すでに動いている（change_log.lock）
 
 
 def run(client: Client, issue_key: str, *, now: datetime | None = None,

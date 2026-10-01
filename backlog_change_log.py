@@ -17,7 +17,8 @@ import argparse
 from change_log.client import BacklogAPIError, BacklogClient, format_api_error
 from change_log.config import load_config
 from change_log.core import REPO_ROOT
-from change_log.runner import run
+from change_log.lock import AlreadyRunning, lock_path, single_run
+from change_log.runner import EXIT_ALREADY_RUNNING, EXIT_FAILED, run
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -37,10 +38,18 @@ def main(argv: list[str] | None = None) -> int:
     client = BacklogClient(config.space_host, config.api_key, ssl_verify=config.ssl_verify,
                            base_path=config.base_path, debug=args.debug)
     try:
-        return run(client, config.issue_key, dry_run=args.dry_run)
+        if args.dry_run:
+            # 投稿しないので、ほかの実行と重なっても二重投稿にはならない
+            return run(client, config.issue_key, dry_run=True)
+        with single_run(lock_path(config.space_host, config.issue_key)):
+            return run(client, config.issue_key)
+    except AlreadyRunning:
+        print(f"エラー: {config.issue_key} への記録が、すでに実行中です。終わってから実行してください。",
+              file=sys.stderr)
+        return EXIT_ALREADY_RUNNING
     except BacklogAPIError as e:
         print(format_api_error(e), file=sys.stderr)
-        return 1
+        return EXIT_FAILED
 
 
 if __name__ == "__main__":

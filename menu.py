@@ -176,8 +176,8 @@ def describe_setup(config_path: str, env: dict | None = None) -> list[str]:
         lines.append(f"追跡      : {', '.join(str(k) for k in keys)}")
     else:
         lines.append("追跡      : 記録先の課題のプロジェクト")
-    found = find_api_key(env, config_path=path)
-    lines.append(f"API キー  : {'設定済み' if found else '※ 見つかりません（BACKLOG_API_KEY か .env）'}")
+    found = find_api_key(env, config_path=path, config_value=backlog.get("api_key"))
+    lines.append(f"API キー  : {'設定済み' if found else '※ 見つかりません（config.yaml の backlog.api_key）'}")
     return lines
 
 

@@ -203,3 +203,14 @@ def test_describe_setup_without_file(tmp_path):
     assert "設定ファイルがありません" in menu.describe_setup(str(tmp_path / "none.yaml"))[0]
     assert "内容が空" in menu.describe_setup(_config(tmp_path, ""))[0]
     assert "読めません" in menu.describe_setup(_config(tmp_path, "a: [b"))[0]
+
+
+def test_describe_setup_finds_api_key_in_config(tmp_path, monkeypatch):
+    from change_log import config
+    monkeypatch.setattr(config, "REPO_ROOT", tmp_path / "repo")
+    monkeypatch.chdir(tmp_path)
+    path = _config(tmp_path, 'backlog:\n  space_host: "x.backlog.com"\n  api_key: "secret-in-config"\n'
+                             'target:\n  issue_key: "ABC-1"\n')
+    lines = menu.describe_setup(path, env={})
+    assert lines[3] == "API キー  : 設定済み"
+    assert "secret-in-config" not in "".join(lines)

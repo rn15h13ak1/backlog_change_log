@@ -2,16 +2,15 @@
 # Backlog 変更記録ツール 設定ファイル
 # ============================================================
 # このファイルをコピーして config.yaml を作成してください。
-# config.yaml は .gitignore で除外されています。
+# config.yaml は .gitignore で除外されています（API キーを含むため）。
 #
 #   cp config.example.yaml config.yaml
 #
 # 依存ライブラリのインストール:
 #   .venv/bin/pip install pyyaml
 #
-# API キーはこのファイルには書きません（共通規約 C）。
-# 環境変数 BACKLOG_API_KEY か、.env に BACKLOG_API_KEY=... の形で置いてください。
-#   cp .env.example .env
+# API キーは、環境変数 BACKLOG_API_KEY や .env に置くこともできます。
+# 探す順は 環境変数 → config.yaml の api_key → .env です。
 #
 # menu.py（対話メニュー）から使う場合も、このファイルを読みます。
 # 記録先の課題や追跡するプロジェクトは、メニューでは指定しません。
@@ -24,6 +23,7 @@
 # ------------------------------------------------------------
 backlog:
   space_host: "yourcompany.backlog.com"  # スペースのホスト名（例: myteam.backlog.com）
+  api_key: "YOUR_API_KEY_HERE"           # Backlog API キー（個人設定 → API から取得）
   ssl_verify: true                       # SSL 証明書検証（オンプレ版で false にする場合あり）
   base_path: ""                          # オンプレ版のパスプレフィックス（例: "/backlog"）
 

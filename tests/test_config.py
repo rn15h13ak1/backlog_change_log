@@ -105,3 +105,30 @@ def test_config_errors_exit_with_2(tmp_path):
     with pytest.raises(SystemExit) as e:
         load_config(str(tmp_path / "none.yaml"), api_key="k")
     assert e.value.code == 2
+
+
+def test_api_key_from_config_file(tmp_path, monkeypatch):
+    """config.example.yaml をコピーして config.yaml にキーを書く運用"""
+    monkeypatch.delenv("BACKLOG_API_KEY", raising=False)
+    p = tmp_path / "config.yaml"
+    p.write_text('backlog:\n  space_host: "x.backlog.com"\n  api_key: "from-config"\n'
+                 'target:\n  issue_key: "ABC-12"\n', encoding="utf-8")
+    assert load_config(str(p)).api_key == "from-config"
+
+
+def test_api_key_order_env_then_config_then_dotenv(places):
+    _dotenv(places["conf"], "from-dotenv")
+    assert _resolve_with(places, {}, "from-config") == "from-config"
+    assert _resolve_with(places, {"BACKLOG_API_KEY": "from-env"}, "from-config") == "from-env"
+    assert _resolve_with(places, {}, None) == "from-dotenv"
+
+
+def test_placeholder_in_config_is_skipped(places):
+    _dotenv(places["cwd"], "real")
+    assert _resolve_with(places, {}, "YOUR_API_KEY_HERE") == "real"
+    assert _resolve_with(places, {}, "  ") == "real"
+
+
+def _resolve_with(places, env, config_value):
+    return resolve_api_key(env, config_path=places["conf"] / "config.yaml", cwd=places["cwd"],
+                           config_value=config_value)

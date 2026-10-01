@@ -21,6 +21,14 @@
 
 他のリポジトリへの提案を書くことはあっても、そのリポジトリの履歴は変えない（規約 B）。
 
+## API キーを config.yaml に書ける理由
+
+共通規約 C は「資格情報は設定ファイルに書かない」としているが、本リポジトリは `config.yaml` の
+`backlog.api_key` を読む。 **規約の意図は値を Git に入れないことで、`config.yaml` は `.gitignore` で
+除外している。** 利用者の指示（2026-10-01）による。文言の見直しは
+[`../proposals/ws-conventions-config-api-key.md`](../proposals/ws-conventions-config-api-key.md) で提案した。
+規約が直ったら、この節は消してよい。
+
 ## 文書の分担
 
 [`../backlog_issue_cloner`](../backlog_issue_cloner/README.md) の文書の作りに揃えている。

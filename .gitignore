@@ -30,7 +30,7 @@ id_ecdsa*
 *.ppk
 known_hosts
 
-# 設定の実体（環境ごとに作る）
+# 設定の実体（API キーを含む）
 config.yaml
 
 # Python

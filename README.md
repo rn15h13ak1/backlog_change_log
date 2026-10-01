@@ -74,9 +74,8 @@ cd /path/to/backlog_change_log
 python3 -m venv .venv
 .venv/bin/pip install pyyaml
 
-# 2. 接続先と記録先の課題を設定する（API キーは .env に書く）
+# 2. 接続情報と記録先の課題を設定する
 cp config.example.yaml config.yaml
-cp .env.example .env
 
 # 3. 応答が前提どおりかを確かめる（読み取りだけ）
 .venv/bin/python check_api.py
@@ -88,20 +87,15 @@ cp .env.example .env
 .venv/bin/python backlog_change_log.py
 ```
 
-`config.yaml` に書くのは、接続先と記録先の課題、追跡するプロジェクトだけです。
+`config.yaml` に書くのは、接続情報と記録先の課題、追跡するプロジェクトだけです。
 
 ```yaml
 backlog:
   space_host: "myteam.backlog.com"
+  api_key: "YOUR_API_KEY_HERE"
 target:
   issue_key: "PROJ-1"
   project_keys: [PROJ, SUPPORT]   # 省略すると記録先の課題のプロジェクトだけ
-```
-
-`.env` には API キーを書きます。
-
-```bash
-BACKLOG_API_KEY=YOUR_API_KEY_HERE
 ```
 
 ---
@@ -114,7 +108,7 @@ BACKLOG_API_KEY=YOUR_API_KEY_HERE
 足りない場合は、起動時に何が足りないかを表示して Exit code `2` で終了します。
 macOS 標準の `/usr/bin/python3`（3.9）では動きません。
 
-`config.yaml` と `.env` は `.gitignore` で除外されています。
+`config.yaml` は API キーを含むため `.gitignore` で除外されています（`.env` も同じ）。
 
 ---
 
@@ -355,6 +349,7 @@ cp config.example.yaml config.yaml
 | キー | 必須 | デフォルト | 説明 |
 | --- | --- | --- | --- |
 | `space_host` | ○ | ― | スペースのホスト名（例: `myteam.backlog.com`） |
+| `api_key` | ○ | ― | API キー（個人設定 → API で発行）。環境変数か `.env` に置く場合は省略できる（下記） |
 | `base_path` | | `""` | オンプレ版のパスプレフィックス（例: `/backlog`） |
 | `ssl_verify` | | `true` | SSL 証明書を検証する。オンプレ版で自己署名証明書を使う場合に `false` |
 
@@ -367,13 +362,14 @@ cp config.example.yaml config.yaml
 
 ### API キー
 
-**API キーは設定ファイルに書きません** （[共通規約 C](../ws-conventions/README.md#設定ファイル)）。
+ふつうは `config.yaml` の `backlog.api_key` に書きます（`config.yaml` は `.gitignore` で除外されています）。
 次の順に探し、最初に見つかったものを使います。
 
-1. 環境変数 `BACKLOG_API_KEY`
-2. 設定ファイルと同じ場所の `.env`
-3. リポジトリ直下の `.env`
-4. 作業ディレクトリの `.env`
+1. 環境変数 `BACKLOG_API_KEY` （定期実行などで、設定ファイルを書き換えずに差し替えたいとき）
+2. `config.yaml` の `backlog.api_key`
+3. 設定ファイルと同じ場所の `.env`
+4. リポジトリ直下の `.env`
+5. 作業ディレクトリの `.env`
 
 例の値（`YOUR_API_KEY_HERE`）のままのものは無いものとして扱います。
 見つからないときは、探した場所を表示して終了します。
@@ -469,11 +465,11 @@ backlog_change_log/
 ├── menu.bat                 メニューの起動用（Windows でダブルクリック）
 ├── .gitattributes           menu.bat の改行コードを CRLF に固定
 ├── config.example.yaml      設定ファイルのテンプレート
-├── .env.example             API キーを置く .env のテンプレート
+├── .env.example             API キーを .env に置く場合のテンプレート（任意）
 ├── CHANGELOG.md             変更履歴
 ├── LICENSE                  MIT ライセンス
-├── config.yaml              実際の設定。Git 管理外
-├── .env                     API キー。Git 管理外
+├── config.yaml              実際の設定。API キーを含むため Git 管理外
+├── .env                     API キー（任意）。Git 管理外
 ├── change_log/
 │   ├── runner.py            通しの処理
 │   ├── client.py            Backlog API（GET はリトライする。POST はしない）

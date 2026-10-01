@@ -7,6 +7,14 @@
 
 ### Changed
 
+- **API キーを `config.yaml` の `backlog.api_key` に書けるようにした。** `config.example.yaml` にも
+  項目を戻した。探す順は「環境変数 `BACKLOG_API_KEY` → `config.yaml` → `.env`」
+  - 共通規約 C の「資格情報は設定ファイルに書かない」を字義どおりに読み、項目自体を定義していなかった。
+    規約の意図は **値を Git に入れない** ことで、`config.yaml` は `.gitignore` で除外している。その結果、
+    `config.example.yaml` をコピーして `config.yaml` にキーを書くという、`backlog_report` /
+    `backlog_issue_cloner` / `excel_to_backlog` と同じ運用が使えなくなっていた（利用者の指摘による）
+  - 規約の文言の見直しを `../proposals/ws-conventions-config-api-key.md` で提案した
+  - 環境変数と `.env` は引き続き読む。すでに `.env` に置いた人の設定はそのまま動く
 - `config.example.yaml` の書き方を `../backlog_issue_cloner` に揃えた。冒頭に依存のインストール・
   API キーの置き場所・メニューから使う場合・README への案内を書き、接続設定は行末コメント、
   セクションは `# ------` の見出しで分けた。API キーは引き続き設定ファイルに書かない（共通規約 C。

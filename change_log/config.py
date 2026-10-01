@@ -1,7 +1,8 @@
 """設定ファイルと API キーの読み込み。
 
-API キーは設定ファイルに書かない（規約 C「設定ファイル」）。環境変数
-BACKLOG_API_KEY か、リポジトリ直下の `.env` から読む。
+API キーは、環境変数 BACKLOG_API_KEY → config.yaml の backlog.api_key → .env の順に探す。
+config.yaml は .gitignore で除外しており、値はコミットされない。
+config.example.yaml をコピーして config.yaml にキーを書く運用を、他の Backlog ツールと同じく使えるようにする。
 """
 import os
 import sys
@@ -71,12 +72,19 @@ def dotenv_candidates(config_path: Path | None = None, cwd: Path | None = None) 
 
 
 def find_api_key(env: Mapping[str, str] | None = None, config_path: Path | None = None,
-                 cwd: Path | None = None) -> str | None:
-    """環境変数 → .env（dotenv_candidates の順）で探す。例の値のままのものは無いものとして扱う"""
+                 cwd: Path | None = None, config_value: object = None) -> str | None:
+    """
+    環境変数 → 設定ファイルの値（config_value）→ .env（dotenv_candidates の順）で探す。
+    例の値のままのものは無いものとして扱う。
+
+    環境変数を先にするのは、定期実行などで設定ファイルを書き換えずに差し替えられるようにするため。
+    """
     source: Mapping[str, str] = os.environ if env is None else env
     key = source.get(API_KEY_ENV, "")
     if key and key not in PLACEHOLDERS:
         return key
+    if isinstance(config_value, str) and config_value.strip() and config_value.strip() not in PLACEHOLDERS:
+        return config_value.strip()
     for path in dotenv_candidates(config_path, cwd):
         key = read_dotenv(path).get(API_KEY_ENV, "")
         if key and key not in PLACEHOLDERS:
@@ -85,13 +93,14 @@ def find_api_key(env: Mapping[str, str] | None = None, config_path: Path | None 
 
 
 def resolve_api_key(env: Mapping[str, str] | None = None, config_path: Path | None = None,
-                    cwd: Path | None = None) -> str:
+                    cwd: Path | None = None, config_value: object = None) -> str:
     """find_api_key と同じ順で探し、見つからなければ探した場所を表示して終了する"""
-    key = find_api_key(env, config_path, cwd)
+    key = find_api_key(env, config_path, cwd, config_value)
     if key:
         return key
     places = "\n".join(f"    {path}" for path in dotenv_candidates(config_path, cwd))
-    _fail(f"API キーがありません。環境変数 {API_KEY_ENV} か、次のいずれかの .env に設定してください:\n{places}")
+    _fail("API キーがありません。config.yaml の backlog.api_key に書くか、"
+          f"環境変数 {API_KEY_ENV}、または次のいずれかの .env に設定してください:\n{places}")
     return ""  # _fail は終了する
 
 
@@ -133,5 +142,5 @@ def load_config(path: str, api_key: str | None = None) -> Config:
         base_path=str(backlog.get("base_path") or ""),
         ssl_verify=bool(backlog.get("ssl_verify", True)),
         issue_key=issue_key,
-        api_key=api_key if api_key is not None else resolve_api_key(config_path=p),
+        api_key=api_key if api_key is not None else resolve_api_key(config_path=p, config_value=backlog.get("api_key")),
     )

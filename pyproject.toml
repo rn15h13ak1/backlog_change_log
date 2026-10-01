@@ -41,3 +41,8 @@ select = ["E", "F", "W", "I", "UP", "B"]
 ignore = [
     "E501",  # 行長は line-length で管理（日本語コメントが多いため緩める）
 ]
+
+# 入口は、実行環境の確認（change_log.runtime）をほかの import より先に行うため、
+# import が先頭に揃わない。
+[tool.ruff.lint.per-file-ignores]
+"backlog_change_log.py" = ["E402"]

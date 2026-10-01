@@ -62,7 +62,7 @@ Backlog のプロジェクトで、**どの課題が作成・更新・削除さ�
 
 ## 準備
 
-Python 3.10 以上と PyYAML が要ります。
+Python 3.10 以上と PyYAML が要ります。足りない場合は、起動時に何が足りないかを表示して終了します（終了コード `2`）。macOS 標準の `/usr/bin/python3`（3.9）では動きません。
 
 ```bash
 python3 -m venv .venv
@@ -124,6 +124,7 @@ cp .env.example .env
 | `change_log/state.py` | その日の終わりの件名・担当者の逆算 |
 | `change_log/render.py` | コメント本文（マークダウン / Backlog 記法）と分割 |
 | `change_log/config.py` | 設定ファイルと API キー |
+| `change_log/runtime.py` | Python の版と依存の確認（3.9 でも読める書き方に保つ） |
 
 ## 開発
 

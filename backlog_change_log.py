@@ -4,8 +4,15 @@ Backlog の課題の変更（作成・更新・削除）を、1 日ごとに記�
 
 前日以前で未出力の日（最大 7 日）を 1 日 1 件で投稿し、当日の変更は標準出力に表示する。
 """
-import argparse
 import sys
+
+# 依存と Python の版を先に確かめる。ほかのモジュールは 3.10 以上の書き方を使っており、
+# 先に読み込むと、何が足りないのか分からないエラーで落ちるため。
+from change_log.runtime import ensure_runtime
+
+ensure_runtime()
+
+import argparse
 
 from change_log.client import BacklogAPIError, BacklogClient, format_api_error
 from change_log.config import load_config

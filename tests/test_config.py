@@ -98,3 +98,10 @@ def test_project_keys_must_not_repeat(tmp_path, capsys):
     with pytest.raises(SystemExit):
         load_config(_write(tmp_path, "  project_keys: [ABC, OTHER, ABC]\n"), api_key="k")
     assert "重複しています: ABC" in capsys.readouterr().err
+
+
+def test_config_errors_exit_with_2(tmp_path):
+    """設定の誤りは、API のエラー（1）と区別して 2 で止める"""
+    with pytest.raises(SystemExit) as e:
+        load_config(str(tmp_path / "none.yaml"), api_key="k")
+    assert e.value.code == 2

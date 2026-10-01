@@ -28,9 +28,14 @@ class Config:
     project_keys: list[str] = field(default_factory=list)
 
 
+#: 設定の誤りで止めるときの終了コード。実行する前に人が直すものなので、実行環境の不足
+#: （change_log.runtime）と同じ 2 にする。1 は API / ネットワークのエラーに使う。
+EXIT_CONFIG = 2
+
+
 def _fail(message: str) -> None:
     print(f"エラー: {message}", file=sys.stderr)
-    sys.exit(1)
+    sys.exit(EXIT_CONFIG)
 
 
 def read_dotenv(path: Path) -> dict[str, str]:

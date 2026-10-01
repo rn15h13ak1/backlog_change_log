@@ -1,0 +1,43 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "backlog-change-log"
+# CHANGELOG.md の最新の節に合わせる。
+version = "0.1.0"
+description = "Backlog の課題の変更を、1 日ごとに課題のコメントへ記録するスクリプト"
+requires-python = ">=3.10"
+dependencies = [
+    "pyyaml>=6.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0",
+    "ruff>=0.4",
+    "mypy>=1.10",
+    "types-PyYAML",
+]
+
+[tool.setuptools]
+py-modules = ["backlog_change_log"]
+packages = ["change_log"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+[tool.mypy]
+python_version = "3.10"
+files = ["backlog_change_log.py", "change_log"]
+check_untyped_defs = true
+
+[tool.ruff]
+line-length = 120
+target-version = "py310"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "UP", "B"]
+ignore = [
+    "E501",  # 行長は line-length で管理（日本語コメントが多いため緩める）
+]

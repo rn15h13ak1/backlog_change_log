@@ -1,0 +1,125 @@
+import io
+from datetime import datetime
+
+from change_log.core import JST
+from change_log.marker import parse_marker
+from change_log.runner import run
+from tests.fakes import RECORD_ID, FakeClient, change, commented, created, issue, record_comment, updated
+
+NOW = datetime(2026, 10, 1, 14, 30, tzinfo=JST)
+
+
+def _run(client, **kwargs):
+    out, err = io.StringIO(), io.StringIO()
+    code = run(client, "PROJ-1", now=NOW, out=out, err=err, **kwargs)
+    return code, out.getvalue(), err.getvalue()
+
+
+def _base_activities():
+    return [
+        # 記録先の課題の作成（ここまで履歴が揃っている印になる）
+        created("2026-09-01 09:00", RECORD_ID, 1, "変更記録"),
+        # 古い日（初回では出力しない）
+        updated("2026-09-28 10:00", 1, 98, "帳票", [change("status", "a", "b")]),
+        # 前日
+        created("2026-09-30 09:00", 2, 123, "ログイン"),
+        updated("2026-09-30 10:00", 1, 98, "帳票", [change("assigner", "佐藤", "山田")]),
+        # 記録先の課題そのもの（対象外）
+        commented("2026-09-30 11:00", RECORD_ID, 1, "変更記録"),
+        # 当日
+        updated("2026-10-01 09:00", 3, 101, "調査", [change("limitDate", "a", "b")]),
+    ]
+
+
+def _issues():
+    return [issue(1, 98, "帳票", "山田"), issue(2, 123, "ログイン", None), issue(3, 101, "調査", "鈴木")]
+
+
+def test_first_run_posts_yesterday_only_and_prints_today():
+    client = FakeClient(_base_activities(), _issues())
+    code, out, _ = _run(client)
+    assert code == 0
+    assert len(client.posted) == 1
+    body = client.posted[0]
+    assert parse_marker(body).isoformat() == "2026-09-30"
+    assert "PROJ-123" in body and "PROJ-98" in body
+    assert "PROJ-1 " not in body and "| PROJ-1 |" not in body   # 記録先は載らない
+    assert "PROJ-101" not in body                               # 当日分は載らない
+    # 当日分は標準出力だけ
+    assert "2026-10-01 の課題の変更（0:00〜14:30 時点）" in out
+    assert "| PROJ-101 | 調査 | 期限日 | 鈴木 |" in out
+
+
+def test_second_run_on_same_day_posts_nothing():
+    client = FakeClient(_base_activities(), _issues())
+    _run(client)
+    _run(client)
+    assert len(client.posted) == 1
+
+
+def test_catch_up_posts_each_missing_day_in_order():
+    client = FakeClient(_base_activities(), _issues(), comments=[record_comment("x\n対象日: 2026-09-27")])
+    _run(client)
+    assert [parse_marker(b).isoformat() for b in client.posted] == ["2026-09-28", "2026-09-29", "2026-09-30"]
+    assert "変更はありませんでした。" in client.posted[1]
+
+
+def test_reads_only_until_latest_marker():
+    old = [record_comment(f"対象日: 2026-09-{d:02d}") for d in range(1, 29)]
+    client = FakeClient(_base_activities(), _issues(), comments=old + [record_comment("雑談")])
+    _run(client)
+    assert client.comments_read == 2
+
+
+def test_more_than_seven_days_skips_older_and_does_not_revisit():
+    client = FakeClient(_base_activities(), _issues(), comments=[record_comment("対象日: 2026-09-20")])
+    _, _, err = _run(client)
+    assert [parse_marker(b).isoformat() for b in client.posted] == [f"2026-09-{d}" for d in range(24, 31)]
+    assert "2026-09-21〜2026-09-23 は上限 7 日を超えた" in err
+    _run(client)
+    assert len(client.posted) == 7
+
+
+def test_dry_run_posts_nothing():
+    client = FakeClient(_base_activities(), _issues())
+    _, out, _ = _run(client, dry_run=True)
+    assert client.posted == []
+    assert "対象日: 2026-09-30" in out
+
+
+def test_failure_stops_and_leaves_rest_for_next_run():
+    client = FakeClient(_base_activities(), _issues(), comments=[record_comment("対象日: 2026-09-27")],
+                        fail_post_at=1)
+    code, _, err = _run(client)
+    assert code == 1 and len(client.posted) == 1
+    assert "2026-09-29 のコメントの投稿に失敗" in err
+    client.fail_post_at = None
+    _run(client)
+    assert [parse_marker(b).isoformat() for b in client.posted] == ["2026-09-28", "2026-09-29", "2026-09-30"]
+
+
+def test_days_beyond_available_activities_are_not_posted():
+    # 記録先の課題の作成が見えない（履歴が途中で切れている）場合
+    # 遡れる最古のアクティビティが 9/29 12:00。9/28 と 9/29 は不完全かもしれない
+    acts = [updated("2026-09-29 12:00", 1, 98, "帳票", [change("status", "a", "b")]),
+            updated("2026-09-30 10:00", 1, 98, "帳票", [change("status", "b", "c")])]
+    client = FakeClient(acts, _issues(), comments=[record_comment("対象日: 2026-09-27")])
+    _, _, err = _run(client)
+    assert [parse_marker(b).isoformat() for b in client.posted] == ["2026-09-30"]
+    assert "2026-09-28〜2026-09-29 はアクティビティを遡りきれず" in err
+
+
+def test_backlog_formatting_rule():
+    client = FakeClient(_base_activities(), _issues(), fmt="backlog")
+    _run(client)
+    assert client.posted[0].startswith("** 2026-09-30 の課題の変更")
+
+
+def test_short_history_is_complete_when_record_creation_is_seen():
+    # プロジェクトの履歴が短く、ページの端まで読み切った。記録先の作成が見えるので揃っている
+    acts = [created("2026-09-29 08:00", RECORD_ID, 1, "変更記録"),
+            updated("2026-09-30 10:00", 1, 98, "帳票", [change("status", "b", "c")])]
+    client = FakeClient(acts, _issues(), comments=[record_comment("対象日: 2026-09-27")])
+    _, _, err = _run(client)
+    assert [parse_marker(b).isoformat() for b in client.posted] == ["2026-09-28", "2026-09-29", "2026-09-30"]
+    assert err == ""

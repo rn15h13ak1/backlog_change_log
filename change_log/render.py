@@ -62,6 +62,9 @@ class _Syntax:
     def h3(self, text: str) -> str:
         return f"### {text}" if self.fmt == MARKDOWN else f"*** {text}"
 
+    def h4(self, text: str) -> str:
+        return f"#### {text}" if self.fmt == MARKDOWN else f"**** {text}"
+
     def table_head(self, columns: list[str]) -> list[str]:
         if self.fmt == MARKDOWN:
             return ["| " + " | ".join(columns) + " |", "|" + "---|" * len(columns)]
@@ -77,42 +80,66 @@ class _Syntax:
         return "---" if self.fmt == MARKDOWN else "----"
 
 
-def render_day(d: date, project_key: str, changes: list[IssueChange], fmt: str,
+#: 1 つのプロジェクトの、1 日分の変更（プロジェクトキー, 変更）
+ProjectChanges = tuple[str, list[IssueChange]]
+
+
+def render_day(d: date, groups: list[ProjectChanges], fmt: str,
                *, title_note: str = "", with_marker: bool = True,
                max_chars: int = MAX_COMMENT_CHARS) -> list[str]:
     """
     1 日分のコメント本文を返す。max_chars を超える場合は複数に分ける。
 
+    プロジェクトが 1 つなら、プロジェクトの見出しを付けない（複数対応の前と同じ形）。
+    複数なら、対象のプロジェクトを並べ、プロジェクトごとに見出しを分ける。
+
     目印は最後の 1 件にだけ付ける。途中で投稿に失敗しても、その日は次回に
     丸ごと出し直される（前半は重複するが、抜けはしない）。
     """
     syn = _Syntax(fmt)
+    multi = len(groups) > 1
+    all_changes = [c for _, changes in groups for c in changes]
     title = f"{d.isoformat()} の課題の変更{title_note}"
     footer = ["", syn.rule(), marker_line(d)] if with_marker else []
+    intro = [syn.h2(title), ""]
+    if multi:
+        intro += [f"対象: {', '.join(key for key, _ in groups)}", ""]
 
-    if not changes:
-        return ["\n".join([syn.h2(title), "", "変更はありませんでした。", *footer])]
+    if not all_changes:
+        return ["\n".join([*intro, "変更はありませんでした。", *footer])]
 
-    sections = build_sections(project_key, changes)
+    # (継続時に繰り返す見出し, 表の見出し, 行) の並びに平らにする
     parts: list[list[str]] = []
-    current: list[str] = [syn.h2(title), "", _counts_line(changes)]
+    current: list[str] = [*intro, _counts_line(all_changes)]
     budget = max_chars - len("\n".join(footer)) - 40  # 見出しの「（続き）」の分を残す
+    section_h = syn.h4 if multi else syn.h3
 
     def size(lines: list[str]) -> int:
         return len("\n".join(lines))
 
-    for sec in sections:
-        head = ["", syn.h3(sec.title), "", *syn.table_head(sec.columns)]
-        if size(current + head) > budget and len(current) > 1:
-            parts.append(current)
-            current = [syn.h2(title)]
-        current.extend(head)
-        for row in sec.rows:
-            line = syn.row(row)
-            if size(current + [line]) > budget:
-                parts.append(current)
-                current = [syn.h2(title), "", syn.h3(f"{sec.title}（続き）"), "", *syn.table_head(sec.columns)]
-            current.append(line)
+    def flush(restart: list[str]) -> None:
+        nonlocal current
+        parts.append(current)
+        current = [syn.h2(title), *restart]
+
+    for project_key, changes in groups:
+        project_head: list[str] = []
+        if multi:
+            project_head = ["", syn.h3(project_key)]
+            body = [*project_head, "", _counts_line(changes) if changes else "変更はありませんでした。"]
+            if size(current + body) > budget and len(current) > 1:
+                flush([])
+            current.extend(body)
+        for sec in build_sections(project_key, changes):
+            head = ["", section_h(sec.title), "", *syn.table_head(sec.columns)]
+            if size(current + head) > budget and len(current) > 1:
+                flush(project_head)
+            current.extend(head)
+            for row in sec.rows:
+                line = syn.row(row)
+                if size(current + [line]) > budget:
+                    flush([*project_head, "", section_h(f"{sec.title}（続き）"), "", *syn.table_head(sec.columns)])
+                current.append(line)
     parts.append(current)
 
     if len(parts) > 1:

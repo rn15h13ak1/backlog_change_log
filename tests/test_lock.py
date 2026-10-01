@@ -68,4 +68,4 @@ def test_main_refuses_when_already_running(tmp_path, monkeypatch, capsys):
     monkeypatch.setattr(entry, "run", lambda *a, **k: called.append(k) or 0)
     with single_run(lock_path("x.backlog.com", "ABC-1", tmp_path)):
         assert entry.main(["--config", str(config), "--dry-run"]) == 0
-    assert called == [{"dry_run": True}]
+    assert called == [{"project_keys": [], "dry_run": True}]

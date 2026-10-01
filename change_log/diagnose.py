@@ -13,7 +13,8 @@ from collections import Counter
 from datetime import datetime, timedelta
 from typing import TextIO
 
-from change_log.collect import FIELD_LABELS
+from change_log.client import BacklogAPIError
+from change_log.collect import FIELD_LABELS, activity_created
 from change_log.core import (
     ACT_COMMENTED,
     ACT_CREATED,
@@ -23,7 +24,6 @@ from change_log.core import (
     JST,
     MAX_COMMENT_CHARS,
     TARGET_ACTIVITY_TYPES,
-    parse_api_datetime,
 )
 from change_log.marker import find_latest_recorded
 from change_log.runner import Client
@@ -38,7 +38,8 @@ TYPE_NAMES = {
 SINGLE_ISSUE_KEYS = ("id", "key_id", "summary")
 
 
-def diagnose(client: Client, issue_key: str, *, now: datetime | None = None, days: int = 7,
+def diagnose(client: Client, issue_key: str, *, project_keys: list[str] | None = None,
+             now: datetime | None = None, days: int = 7,
              max_activities: int = 1000, out: TextIO = sys.stdout) -> int:
     """終了コードを返す（0: 前提どおり、1: 前提と違う応答があった）"""
     now = (now or datetime.now(JST)).astimezone(JST)
@@ -56,7 +57,7 @@ def diagnose(client: Client, issue_key: str, *, now: datetime | None = None, day
     project = client.get_project(record["projectId"])
     rule = project.get("textFormattingRule")
     p(f"記録先の課題: {record.get('issueKey')}（ID {record.get('id')}）")
-    p(f"プロジェクト: {project.get('projectKey')}（ID {project.get('id')}、記法: {rule}）")
+    p(f"記録先のプロジェクト: {project.get('projectKey')}（ID {project.get('id')}、記法: {rule}）")
     if rule not in ("markdown", "backlog"):
         problems.append(f"記法 textFormattingRule が想定外の値です: {rule!r}（Backlog 記法として扱います）")
 
@@ -64,55 +65,67 @@ def diagnose(client: Client, issue_key: str, *, now: datetime | None = None, day
     p(f"出力済みの最新の日: {latest.isoformat() if latest else 'なし（初回の扱いになります）'}")
     p()
 
-    # アクティビティ
+    # アクティビティ（追跡するプロジェクトごとに読み、判定は合算で行う）
+    keys = list(project_keys or [project["projectKey"]])
     type_counts: Counter[int] = Counter()
     field_counts: Counter[str] = Counter()
     comment_with_text = 0
     missing_keys: Counter[str] = Counter()
     multi_shapes: list[str] = []
-    read = 0
-    oldest: datetime | None = None
-    reached = False
-    for act in client.iter_activities_desc(project["id"], TARGET_ACTIVITY_TYPES):
-        created = parse_api_datetime(act["created"])
-        if created < since:
-            reached = True
-            break
-        if read >= max_activities:
-            break
-        read += 1
-        oldest = created
-        type_id = act.get("type")
-        type_counts[type_id] += 1
-        content = act.get("content") or {}
+    for key in keys:
+        try:
+            target = project if key == project.get("projectKey") else client.get_project(key)
+        except BacklogAPIError as e:
+            problems.append(f"追跡するプロジェクト {key} を取得できません（{e}）")
+            continue
+        read = 0
+        oldest: datetime | None = None
+        reached = False
+        own_types: Counter[int] = Counter()
+        for act in client.iter_activities_desc(target["id"], TARGET_ACTIVITY_TYPES):
+            created = activity_created(act)
+            if created is None:
+                missing_keys["created（日時）"] += 1
+                continue
+            if created < since:
+                reached = True
+                break
+            if read >= max_activities:
+                break
+            read += 1
+            oldest = created
+            type_id = act.get("type")
+            type_counts[type_id] += 1
+            own_types[type_id] += 1
+            content = act.get("content") or {}
 
-        if type_id == ACT_MULTI_UPDATED:
-            links = content.get("link")
-            if not isinstance(links, list) or not all("id" in link for link in links):
-                missing_keys["一括更新の content.link[].id"] += 1
-            if not isinstance(content.get("changes"), list):
-                missing_keys["一括更新の content.changes"] += 1
-            if len(multi_shapes) < 1:
-                link_keys = sorted({k for link in (links or []) for k in link})
-                multi_shapes.append(f"content: {sorted(content)} / link[]: {link_keys}")
-        else:
-            for key in SINGLE_ISSUE_KEYS:
-                if key not in content:
-                    missing_keys[f"{TYPE_NAMES.get(type_id, type_id)}の content.{key}"] += 1
+            if type_id == ACT_MULTI_UPDATED:
+                links = content.get("link")
+                if not isinstance(links, list) or not all("id" in link for link in links):
+                    missing_keys["一括更新の content.link[].id"] += 1
+                if not isinstance(content.get("changes"), list):
+                    missing_keys["一括更新の content.changes"] += 1
+                if len(multi_shapes) < 1:
+                    link_keys = sorted({k for link in (links or []) for k in link})
+                    multi_shapes.append(f"content: {sorted(content)} / link[]: {link_keys}")
+            else:
+                for k in SINGLE_ISSUE_KEYS:
+                    if k not in content:
+                        missing_keys[f"{TYPE_NAMES.get(type_id, type_id)}の content.{k}"] += 1
 
-        for c in content.get("changes") or []:
-            if c.get("field"):
-                field_counts[c["field"]] += 1
-        if ((content.get("comment") or {}).get("content") or "").strip():
-            comment_with_text += 1
+            for c in content.get("changes") or []:
+                if c.get("field"):
+                    field_counts[c["field"]] += 1
+            if ((content.get("comment") or {}).get("content") or "").strip():
+                comment_with_text += 1
 
-    p(f"アクティビティ: 直近 {days} 日分を {read} 件読みました"
-      + ("" if reached else f"（{'上限' if read >= max_activities else '履歴の端'}で止まりました）"))
-    if oldest:
-        p(f"  最も古いもの: {oldest.astimezone(JST).strftime('%Y-%m-%d %H:%M')}")
-    for type_id in TARGET_ACTIVITY_TYPES:
-        p(f"  {TYPE_NAMES[type_id]}（種別 {type_id}）: {type_counts.get(type_id, 0)} 件")
-    p(f"  本文のあるコメント（content.comment.content）: {comment_with_text} 件")
+        p(f"アクティビティ（{target.get('projectKey')}、ID {target.get('id')}）: 直近 {days} 日分を {read} 件読みました"
+          + ("" if reached else f"（{'上限' if read >= max_activities else '履歴の端'}で止まりました）"))
+        if oldest:
+            p(f"  最も古いもの: {oldest.astimezone(JST).strftime('%Y-%m-%d %H:%M')}")
+        for type_id in TARGET_ACTIVITY_TYPES:
+            p(f"  {TYPE_NAMES[type_id]}（種別 {type_id}）: {own_types.get(type_id, 0)} 件")
+    p(f"本文のあるコメント（content.comment.content）: {comment_with_text} 件")
     p()
 
     p("変更された項目（changes[].field）:")

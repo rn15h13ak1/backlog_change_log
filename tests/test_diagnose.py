@@ -47,3 +47,23 @@ def test_unexpected_shape_is_a_failure():
     assert "✗ 更新の content.key_id が無いアクティビティが 1 件あります" in out
     assert "✗ 一括更新の content.link[].id が無いアクティビティが 1 件あります" in out
     assert "✗ 一括更新の content.changes が無いアクティビティが 1 件あります" in out
+
+
+def test_each_tracked_project_is_read():
+    other = {"OTHER": (20, [updated("2026-09-30 10:00", 501, 5, "x", [change("assigner", "a", "b")])], [])}
+    client = FakeClient([updated("2026-09-30 10:00", 1, 98, "b", [change("status", "a", "b")])], [],
+                        other_projects=other)
+    out = io.StringIO()
+    code = diagnose(client, "PROJ-1", project_keys=["PROJ", "OTHER"], now=NOW, out=out)
+    text = out.getvalue()
+    assert code == 0
+    assert "アクティビティ（PROJ、ID 10）: 直近 7 日分を 1 件" in text
+    assert "アクティビティ（OTHER、ID 20）: 直近 7 日分を 1 件" in text
+    assert "✓ 担当者の変更は `assigner` として返っています" in text   # OTHER の分も合算で判定
+
+
+def test_unknown_project_is_a_failure():
+    out = io.StringIO()
+    code = diagnose(FakeClient([], []), "PROJ-1", project_keys=["PROJ", "NOPE"], now=NOW, out=out)
+    assert code == 1
+    assert "✗ 追跡するプロジェクト NOPE を取得できません" in out.getvalue()

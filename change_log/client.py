@@ -56,7 +56,7 @@ def format_api_error(err: BacklogAPIError) -> str:
     elif err.status_code == 403:
         lines.append("  → API キーの権限を確認してください。")
     elif err.status_code == 404:
-        lines.append("  → space_host / base_path / target.issue_key を確認してください。")
+        lines.append("  → space_host / base_path / target.issue_key / target.project_keys を確認してください。")
     elif err.status_code in RETRYABLE_STATUS:
         lines.append(f"  → リトライ（{API_MAX_RETRIES} 回）しても回復しませんでした。時間をおいて再実行してください。")
     return "\n".join(lines)

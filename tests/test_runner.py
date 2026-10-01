@@ -154,3 +154,92 @@ def test_post_failure_wins_over_days_not_output():
                         fail_post_at=0)
     code, _, _ = _run(client)
     assert code == 1
+
+
+OTHER_ID = 20
+
+
+def _other(activities, issues=None):
+    return {"OTHER": (OTHER_ID, activities, issues or [])}
+
+
+def _other_issues():
+    return [issue(501, 5, "問い合わせ", "鈴木")]
+
+
+def test_multiple_projects_in_one_comment():
+    other_acts = [created("2026-08-01 09:00", 500, 1, "最初の課題"),
+                  commented("2026-09-30 15:00", 501, 5, "問い合わせ")]
+    client = FakeClient(_base_activities(), _issues(), other_projects=_other(other_acts, _other_issues()))
+    code, out, _ = _run(client, project_keys=["PROJ", "OTHER"])
+    assert code == 0
+    assert "追跡するプロジェクト: PROJ, OTHER" in out
+    [body] = client.posted
+    assert "対象: PROJ, OTHER" in body
+    assert "### PROJ" in body and "### OTHER" in body
+    assert "| OTHER-5 | 問い合わせ | コメント | 鈴木 |" in body
+    assert "| PROJ-98 |" in body
+    assert "| PROJ-1 |" not in body   # 記録先は載らない
+
+
+def test_record_project_is_not_tracked_unless_listed():
+    other_acts = [created("2026-08-01 09:00", 500, 1, "最初の課題"),
+                  commented("2026-09-30 15:00", 501, 5, "問い合わせ")]
+    client = FakeClient(_base_activities(), _issues(), other_projects=_other(other_acts, _other_issues()))
+    _run(client, project_keys=["OTHER"])
+    assert client.activity_requests == [OTHER_ID]
+    [body] = client.posted
+    assert "PROJ-" not in body and "### OTHER" not in body   # 1 つだけなら見出しは付けない
+    assert "| OTHER-5 |" in body
+
+
+def test_day_is_skipped_for_all_projects_if_one_is_incomplete():
+    # OTHER は 9/29 12:00 より前を遡れず、最初の課題の作成も見えない
+    other_acts = [commented("2026-09-29 12:00", 501, 5, "問い合わせ"),
+                  commented("2026-09-30 15:00", 501, 5, "問い合わせ")]
+    client = FakeClient(_base_activities(), _issues(), comments=[record_comment("対象日: 2026-09-27")],
+                        other_projects=_other(other_acts, _other_issues()))
+    code, _, err = _run(client, project_keys=["PROJ", "OTHER"])
+    assert code == 3
+    assert [parse_marker(b).isoformat() for b in client.posted] == ["2026-09-30"]
+    assert "OTHER: 2026-09-28〜2026-09-29 はアクティビティを遡りきれず" in err
+
+
+def test_project_without_any_activity_is_complete():
+    client = FakeClient(_base_activities(), _issues(), comments=[record_comment("対象日: 2026-09-27")],
+                        other_projects=_other([]))
+    code, _, err = _run(client, project_keys=["PROJ", "OTHER"])
+    assert code == 0 and err == ""
+    assert len(client.posted) == 3
+
+
+def test_first_issue_creation_proves_history_is_complete():
+    other_acts = [created("2026-09-29 08:00", 500, 1, "最初の課題")]
+    client = FakeClient(_base_activities(), _issues(), comments=[record_comment("対象日: 2026-09-27")],
+                        other_projects=_other(other_acts, [issue(500, 1, "最初の課題", None)]))
+    code, _, err = _run(client, project_keys=["PROJ", "OTHER"])
+    assert code == 0 and err == ""
+    assert [parse_marker(b).isoformat() for b in client.posted] == ["2026-09-28", "2026-09-29", "2026-09-30"]
+    assert "| OTHER-1 | 最初の課題 | 未設定 |" in client.posted[1]
+
+
+def test_malformed_in_one_project_skips_that_day():
+    from tests.fakes import act
+    other_acts = [created("2026-08-01 09:00", 500, 1, "最初の課題"),
+                  act(2, "2026-09-29 12:00", {"key_id": 5})]   # content.id が無い
+    client = FakeClient(_base_activities(), _issues(), comments=[record_comment("対象日: 2026-09-27")],
+                        other_projects=_other(other_acts))
+    code, _, err = _run(client, project_keys=["PROJ", "OTHER"])
+    assert code == 3
+    assert [parse_marker(b).isoformat() for b in client.posted] == ["2026-09-28", "2026-09-30"]
+    assert "OTHER: 想定と違う形のアクティビティが 1 件" in err
+
+
+def test_unknown_project_stops_before_posting():
+    import pytest
+
+    from change_log.client import BacklogAPIError
+    client = FakeClient(_base_activities(), _issues())
+    with pytest.raises(BacklogAPIError):
+        _run(client, project_keys=["PROJ", "NOPE"])
+    assert client.posted == []

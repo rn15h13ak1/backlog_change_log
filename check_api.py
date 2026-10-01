@@ -35,7 +35,8 @@ def main(argv: list[str] | None = None) -> int:
                            base_path=config.base_path, debug=args.debug)
     print(f"接続先: {client.base_url}")
     try:
-        return diagnose(client, config.issue_key, days=args.days, max_activities=args.max_activities)
+        return diagnose(client, config.issue_key, project_keys=config.project_keys,
+                        days=args.days, max_activities=args.max_activities)
     except BacklogAPIError as e:
         print(format_api_error(e), file=sys.stderr)
         return 1

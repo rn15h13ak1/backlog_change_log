@@ -6,7 +6,7 @@ BACKLOG_API_KEY か、リポジトリ直下の `.env` から読む。
 import os
 import sys
 from collections.abc import Mapping
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 
 import yaml
@@ -24,6 +24,8 @@ class Config:
     ssl_verify: bool
     issue_key: str
     api_key: str
+    #: 追跡するプロジェクトのキー。空なら記録先の課題のプロジェクトだけを追跡する
+    project_keys: list[str] = field(default_factory=list)
 
 
 def _fail(message: str) -> None:
@@ -80,6 +82,20 @@ def resolve_api_key(env: Mapping[str, str] | None = None, config_path: Path | No
     return ""  # _fail は終了する
 
 
+def _project_keys(raw: object) -> list[str]:
+    """target.project_keys を検証する。省略・空は空のリスト（記録先のプロジェクトだけを追跡）"""
+    if raw is None:
+        return []
+    if not isinstance(raw, list) or not all(isinstance(k, str) and k.strip() for k in raw):
+        _fail("config.yaml の target.project_keys は、プロジェクトキーの一覧で書いてください（例: [PROJ, OTHER]）")
+        return []  # _fail は終了する
+    keys = [str(k).strip() for k in raw]
+    duplicated = sorted({k for k in keys if keys.count(k) > 1})
+    if duplicated:
+        _fail(f"config.yaml の target.project_keys に同じキーが重複しています: {', '.join(duplicated)}")
+    return keys
+
+
 def load_config(path: str, api_key: str | None = None) -> Config:
     p = Path(path)
     if not p.exists():
@@ -96,7 +112,10 @@ def load_config(path: str, api_key: str | None = None) -> Config:
     if not issue_key or issue_key in PLACEHOLDERS or "-" not in issue_key:
         _fail("config.yaml の target.issue_key を設定してください（例: MYPROJ-123）")
 
+    project_keys = _project_keys(target.get("project_keys"))
+
     return Config(
+        project_keys=project_keys,
         space_host=space_host,
         base_path=str(backlog.get("base_path") or ""),
         ssl_verify=bool(backlog.get("ssl_verify", True)),

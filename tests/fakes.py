@@ -1,6 +1,7 @@
 """テスト用の偽の API 応答と、偽のクライアント。"""
 from datetime import datetime, timezone
 
+from change_log.client import BacklogAPIError
 from change_log.core import JST
 
 PROJECT_ID = 10
@@ -61,7 +62,8 @@ def record_comment(content: str, user_id: int = ME) -> dict:
 
 class FakeClient:
     def __init__(self, activities: list[dict], issues: list[dict], comments: list[dict] | None = None,
-                 fmt: str = "markdown", fail_post_at: int | None = None):
+                 fmt: str = "markdown", fail_post_at: int | None = None,
+                 other_projects: dict[str, tuple[int, list[dict], list[dict]]] | None = None):
         self.activities = activities          # 任意の順で渡してよい
         self.issues = {i["id"]: i for i in issues}
         self.comments = list(comments or [])  # 古い順
@@ -69,6 +71,11 @@ class FakeClient:
         self.posted: list[str] = []
         self.fail_post_at = fail_post_at
         self.comments_read = 0
+        # 記録先以外のプロジェクト: キー → (プロジェクト ID, アクティビティ, 現在の課題)
+        self.other_projects = other_projects or {}
+        self.activity_requests: list[int] = []
+        for _, _, other_issues in self.other_projects.values():
+            self.issues.update({i["id"]: i for i in other_issues})
 
     def get_myself(self) -> dict:
         return {"id": ME}
@@ -77,7 +84,12 @@ class FakeClient:
         return {"id": RECORD_ID, "issueKey": f"{PROJECT_KEY}-1", "summary": "変更記録", "projectId": PROJECT_ID}
 
     def get_project(self, project_id_or_key):
-        return {"id": PROJECT_ID, "projectKey": PROJECT_KEY, "textFormattingRule": self.fmt}
+        if project_id_or_key in (PROJECT_ID, PROJECT_KEY):
+            return {"id": PROJECT_ID, "projectKey": PROJECT_KEY, "textFormattingRule": self.fmt}
+        if project_id_or_key in self.other_projects:
+            return {"id": self.other_projects[project_id_or_key][0], "projectKey": project_id_or_key,
+                    "textFormattingRule": "markdown"}
+        raise BacklogAPIError(f"/projects/{project_id_or_key}", status_code=404)
 
     def iter_comments_desc(self, issue_id_or_key):
         for c in reversed(self.comments):
@@ -85,6 +97,11 @@ class FakeClient:
             yield c
 
     def iter_activities_desc(self, project_id, activity_type_ids):
+        self.activity_requests.append(project_id)
+        for pid, acts, _ in self.other_projects.values():
+            if pid == project_id:
+                yield from sorted(acts, key=lambda a: a.get("created") or "9999", reverse=True)
+                return
         yield from sorted(self.activities, key=lambda a: a.get("created") or "9999", reverse=True)
 
     def get_issues_by_ids(self, project_id, issue_ids):

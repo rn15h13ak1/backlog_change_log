@@ -40,9 +40,9 @@ def main(argv: list[str] | None = None) -> int:
     try:
         if args.dry_run:
             # 投稿しないので、ほかの実行と重なっても二重投稿にはならない
-            return run(client, config.issue_key, dry_run=True)
+            return run(client, config.issue_key, project_keys=config.project_keys, dry_run=True)
         with single_run(lock_path(config.space_host, config.issue_key)):
-            return run(client, config.issue_key)
+            return run(client, config.issue_key, project_keys=config.project_keys)
     except AlreadyRunning:
         print(f"エラー: {config.issue_key} への記録が、すでに実行中です。終わってから実行してください。",
               file=sys.stderr)

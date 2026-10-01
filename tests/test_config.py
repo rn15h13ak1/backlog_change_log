@@ -69,3 +69,32 @@ def test_config_loads(tmp_path):
     p.write_text('backlog:\n  space_host: "x.backlog.com"\ntarget:\n  issue_key: "ABC-12"\n', encoding="utf-8")
     cfg = load_config(str(p), api_key="k")
     assert (cfg.space_host, cfg.issue_key, cfg.ssl_verify, cfg.base_path) == ("x.backlog.com", "ABC-12", True, "")
+
+
+def _write(tmp_path, target_extra=""):
+    p = tmp_path / "config.yaml"
+    p.write_text('backlog:\n  space_host: "x.backlog.com"\n'
+                 f'target:\n  issue_key: "ABC-12"\n{target_extra}', encoding="utf-8")
+    return str(p)
+
+
+def test_project_keys_default_to_empty(tmp_path):
+    assert load_config(_write(tmp_path), api_key="k").project_keys == []
+
+
+def test_project_keys_are_read(tmp_path):
+    cfg = load_config(_write(tmp_path, "  project_keys: [ABC, OTHER]\n"), api_key="k")
+    assert cfg.project_keys == ["ABC", "OTHER"]
+
+
+@pytest.mark.parametrize("value", ['"ABC"', "[ABC, 1]", '[ABC, ""]', "{a: 1}"])
+def test_project_keys_must_be_a_list_of_keys(tmp_path, value, capsys):
+    with pytest.raises(SystemExit):
+        load_config(_write(tmp_path, f"  project_keys: {value}\n"), api_key="k")
+    assert "プロジェクトキーの一覧" in capsys.readouterr().err
+
+
+def test_project_keys_must_not_repeat(tmp_path, capsys):
+    with pytest.raises(SystemExit):
+        load_config(_write(tmp_path, "  project_keys: [ABC, OTHER, ABC]\n"), api_key="k")
+    assert "重複しています: ABC" in capsys.readouterr().err

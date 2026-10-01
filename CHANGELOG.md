@@ -23,6 +23,10 @@
   - 変更はプロジェクトのアクティビティから読む。課題一覧からは削除が分からないため
   - コメントの投稿は再送しない。二重投稿を避けるため（`../excel_to_backlog` と同じ判断）
 - 公開リポジトリにするため `LICENSE`（MIT）を置いた。既存のツールと揃えた
+- `.gitignore` に `.mypy_cache/` を加えた。`backlog_report` から写した際に、同じ書き漏れを
+  引き継いでいた。mypy が自分で置く `.gitignore` によって除外はされていたが、外部のツールの
+  振る舞いに頼らないようにした。`backlog_report` 側は `../proposals/backlog-report-gitignore-mypy-cache.md`
+  に提案した
 - `scripts/demo.py` を追加した。偽の Backlog（`tests/fakes.py`）につないで、本物に触れずに
   実行例を確かめられる。`run`（通しの処理だけ）・`main`（入口から）・`main post`（偽物への
   投稿まで）の 3 通り。提案は `../proposals/backlog-change-log-fake-backlog-demo.md`

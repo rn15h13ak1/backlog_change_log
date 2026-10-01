@@ -1,7 +1,8 @@
 """実際のスペースの応答で、本ツールが置いている前提を確かめる（読み取りだけ。投稿はしない）。
 
 確かめる前提:
-- 担当者の変更が、アクティビティの changes[].field に `assigner` として現れること
+- 担当者・状態・種別の変更が、アクティビティの changes[].field に `assigner` / `status` / `issueType`
+  として現れること（その日の終わりの値の逆算に使う）
 - コメントが content.comment.content に入ること
 - 一括更新（種別 14）が content.link[] と content.changes[] を持つこと
 - 作成・更新・コメント・削除が content.id / key_id / summary を持つこと
@@ -36,6 +37,9 @@ TYPE_NAMES = {
     ACT_MULTI_UPDATED: "一括更新",
 }
 SINGLE_ISSUE_KEYS = ("id", "key_id", "summary")
+
+#: その日の終わりの値を逆算する項目（changes[].field の名前, 表示名）
+REVERSED_FIELDS = (("assigner", "担当者"), ("status", "状態"), ("issueType", "種別"))
 
 
 def diagnose(client: Client, issue_key: str, *, project_keys: list[str] | None = None,
@@ -139,11 +143,12 @@ def diagnose(client: Client, issue_key: str, *, project_keys: list[str] | None =
 
     # 前提ごとの判定
     p("前提の確認:")
-    if field_counts.get("assigner"):
-        p("  ✓ 担当者の変更は `assigner` として返っています")
-    else:
-        notes.append("担当者の変更が期間内に 1 件もありませんでした。`assigner` で返るかは確かめられて"
-                     "いません。--days を延ばすか、担当者を変えてから再実行してください")
+    for field_name, label in REVERSED_FIELDS:
+        if field_counts.get(field_name):
+            p(f"  ✓ {label}の変更は `{field_name}` として返っています")
+        else:
+            notes.append(f"{label}の変更が期間内に 1 件もありませんでした。`{field_name}` で返るかは確かめられて"
+                         f"いません。--days を延ばすか、{label}を変えてから再実行してください")
     if type_counts.get(ACT_COMMENTED) or comment_with_text:
         if comment_with_text:
             p("  ✓ コメントの本文は content.comment.content に入っています")

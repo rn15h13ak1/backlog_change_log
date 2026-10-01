@@ -123,3 +123,32 @@ def test_malformed_activities_are_skipped_and_reported():
     assert sorted(jst_date(t).isoformat() for t in malformed if t) == [
         "2026-09-27", "2026-09-28", "2026-09-29", "2026-09-30"]
     assert malformed.count(None) == 1   # 日時の読めないもの
+
+
+def test_type_and_status_are_end_of_day_values():
+    rows = _day([
+        updated("2026-09-30 10:00", 1, 98, "帳票", [change("status", "未対応", "処理中")]),
+        updated("2026-10-01 09:00", 1, 98, "帳票", [change("status", "処理中", "完了"),
+                                                   change("issueType", "タスク", "バグ")]),
+    ], [issue(1, 98, "帳票", "山田", issue_type="バグ", status="完了")])
+    assert (rows[98].issue_type, rows[98].status) == ("タスク", "処理中")
+
+
+def test_type_and_status_without_later_change_are_current_values():
+    rows = _day([commented("2026-09-30 10:00", 2, 105, "問い合わせ")],
+                [issue(2, 105, "問い合わせ", "佐藤", issue_type="質問", status="未対応")])
+    assert (rows[105].issue_type, rows[105].status) == ("質問", "未対応")
+
+
+def test_type_and_status_after_later_deletion():
+    rows = _day([
+        updated("2026-09-30 10:00", 1, 98, "帳票", [change("status", "未対応", "処理中")]),
+        deleted("2026-10-01 09:00", 1, 98, "帳票"),
+    ])
+    assert rows[98].status == "処理中"        # その日までの最後の変更から分かる
+    assert rows[98].issue_type == "不明"      # 履歴にも現在の値にも無い
+
+
+def test_deleted_rows_have_no_type_or_status():
+    rows = _day([deleted("2026-09-30 11:00", 7, 120, "重複")])
+    assert rows[120].issue_type is None and rows[120].status is None

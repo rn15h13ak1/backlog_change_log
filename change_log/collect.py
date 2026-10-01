@@ -186,6 +186,8 @@ class IssueChange:
     fields: list[str]              # 更新のときだけ使う。最初に変わった順、重複なし
     summary: str = ""              # 削除のときは削除時点の件名。それ以外は後で埋める
     assignee: str | None = None    # 後で埋める（削除では使わない）
+    issue_type: str | None = None  # 後で埋める（削除では使わない）
+    status: str | None = None      # 後で埋める（削除では使わない）
     created_same_day: bool = False
 
 

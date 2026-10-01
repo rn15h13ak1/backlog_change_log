@@ -47,7 +47,7 @@ def test_first_run_posts_yesterday_only_and_prints_today():
     assert "PROJ-101" not in body                               # 当日分は載らない
     # 当日分は標準出力だけ
     assert "2026-10-01 の課題の変更（0:00〜14:30 時点）" in out
-    assert "| PROJ-101 | 調査 | 期限日 | 鈴木 |" in out
+    assert "| PROJ-101 | 調査 | タスク | 処理中 | 期限日 | 鈴木 |" in out
 
 
 def test_second_run_on_same_day_posts_nothing():
@@ -177,7 +177,7 @@ def test_multiple_projects_in_one_comment():
     [body] = client.posted
     assert "対象: PROJ, OTHER" in body
     assert "### PROJ" in body and "### OTHER" in body
-    assert "| OTHER-5 | 問い合わせ | コメント | 鈴木 |" in body
+    assert "| OTHER-5 | 問い合わせ | タスク | 処理中 | コメント | 鈴木 |" in body
     assert "| PROJ-98 |" in body
     assert "| PROJ-1 |" not in body   # 記録先は載らない
 
@@ -220,7 +220,7 @@ def test_first_issue_creation_proves_history_is_complete():
     code, _, err = _run(client, project_keys=["PROJ", "OTHER"])
     assert code == 0 and err == ""
     assert [parse_marker(b).isoformat() for b in client.posted] == ["2026-09-28", "2026-09-29", "2026-09-30"]
-    assert "| OTHER-1 | 最初の課題 | 未設定 |" in client.posted[1]
+    assert "| OTHER-1 | 最初の課題 | タスク | 処理中 | 未設定 |" in client.posted[1]
 
 
 def test_malformed_in_one_project_skips_that_day():

@@ -32,12 +32,15 @@ def build_sections(project_key: str, changes: list[IssueChange]) -> list[Section
     deleted = [c for c in changes if c.kind == "deleted"]
     sections = []
     if created:
-        sections.append(Section("作成", ["課題", "件名", "担当者"], [
-            [_issue_key(project_key, c), c.summary, c.assignee or ""] for c in created
+        sections.append(Section("作成", ["課題", "件名", "種別", "状態", "担当者"], [
+            [_issue_key(project_key, c), c.summary, c.issue_type or "", c.status or "", c.assignee or ""]
+            for c in created
         ]))
     if updated:
-        sections.append(Section("更新", ["課題", "件名", "変更した項目", "担当者"], [
-            [_issue_key(project_key, c), c.summary, "、".join(c.fields), c.assignee or ""] for c in updated
+        sections.append(Section("更新", ["課題", "件名", "種別", "状態", "変更した項目", "担当者"], [
+            [_issue_key(project_key, c), c.summary, c.issue_type or "", c.status or "",
+             "、".join(c.fields), c.assignee or ""]
+            for c in updated
         ]))
     if deleted:
         sections.append(Section("削除", ["課題", "件名"], [

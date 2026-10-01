@@ -51,9 +51,11 @@ def change(field: str, old: str, new: str) -> dict:
     return {"field": field, "old_value": old, "new_value": new, "type": "standard"}
 
 
-def issue(issue_id: int, key_id: int, summary: str, assignee: str | None) -> dict:
+def issue(issue_id: int, key_id: int, summary: str, assignee: str | None,
+          issue_type: str = "タスク", status: str = "処理中") -> dict:
     return {"id": issue_id, "issueKey": f"{PROJECT_KEY}-{key_id}", "summary": summary,
-            "assignee": {"name": assignee} if assignee else None}
+            "assignee": {"name": assignee} if assignee else None,
+            "issueType": {"name": issue_type}, "status": {"name": status}}
 
 
 def record_comment(content: str, user_id: int = ME) -> dict:

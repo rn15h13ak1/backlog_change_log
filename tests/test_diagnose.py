@@ -26,6 +26,8 @@ def test_all_assumptions_hold():
     ])
     assert code == 0
     assert "✓ 担当者の変更は `assigner` として返っています" in out
+    assert "✓ 状態の変更は `status` として返っています" in out     # 一括更新の中の変更
+    assert "種別の変更が期間内に 1 件もありませんでした" in out
     assert "assigner: 1 件 → 担当者" in out
     assert "対応チーム: 1 件 → そのまま表示" in out
     assert "milestone" not in out
@@ -67,3 +69,11 @@ def test_unknown_project_is_a_failure():
     code = diagnose(FakeClient([], []), "PROJ-1", project_keys=["PROJ", "NOPE"], now=NOW, out=out)
     assert code == 1
     assert "✗ 追跡するプロジェクト NOPE を取得できません" in out.getvalue()
+
+
+def test_status_and_type_are_checked():
+    code, out = _diagnose([updated("2026-09-30 10:00", 1, 98, "b",
+                                   [change("status", "a", "b"), change("issueType", "タスク", "バグ")])])
+    assert code == 0
+    assert "✓ 状態の変更は `status` として返っています" in out
+    assert "✓ 種別の変更は `issueType` として返っています" in out

@@ -110,6 +110,13 @@ macOS 標準の `/usr/bin/python3`（3.9）では動きません。
 
 `config.yaml` は API キーを含むため `.gitignore` で除外されています（`.env` も同じ）。
 
+> このドキュメントのコマンドは macOS / Linux の `.venv/bin/python` 表記です。
+> Windows では `.venv\Scripts\python` に読み替えてください。`menu.bat` は `py -3` か `python` を自動で判別します。
+
+**Windows の日本語コンソール（CP932）でも落ちないようにしています。** 画面に出す文字は CP932 に収め
+（`tests/test_windows.py` で検査）、課題の件名などに CP932 で表せない文字（絵文字など）があれば、
+その文字だけ `?` で表示します。コメントとして投稿する本文は置き換えません。
+
 ---
 
 ## 使い方ガイド
@@ -453,7 +460,8 @@ cp config.example.yaml config.yaml
   重複します（抜けるよりは重複を選んでいます）。
 - **コメントの文字数の上限は確かめていません。** 20,000 字で分けていますが、Backlog の上限は
   公開されていません。
-- **Windows では動かしていません。** ロックは Windows 用の処理（`msvcrt`）を持ちますが、未確認です。
+- **Windows の実機では動かしていません。** CP932 の文字・`menu.bat` の形・改行コードはテストで確かめて
+  いますが、いずれも静的な検査です。ロックの Windows 用の処理（`msvcrt`）も未確認です。
 
 ---
 
@@ -536,6 +544,9 @@ Exit code で知らせる、といった判断をしています。
 .venv/bin/ruff check .          # Lint
 .venv/bin/mypy                  # 型
 ```
+
+Windows でしか起きない退行（CP932 に無い文字、`menu.bat` の形、改行コード）は `tests/test_windows.py` が
+macOS でも検出します（[共通規約 E](../ws-conventions/README.md#e-ツールの種類ごとの手引き)）。
 
 本物の Backlog に接続せずに実行例を見るには、偽の Backlog につなぐ `scripts/demo.py` を使います。
 投稿もしません。

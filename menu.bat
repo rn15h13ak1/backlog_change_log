@@ -35,5 +35,8 @@ set RC=%ERRORLEVEL%
 
 popd
 if not "%RC%"=="0" echo.& echo [exit code %RC%]
-pause
+
+rem Pause only when double-clicked. With arguments (e.g. --config) this may
+rem run unattended from Task Scheduler, where pause would wait forever.
+if "%~1"=="" pause
 exit /b %RC%

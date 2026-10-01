@@ -47,8 +47,28 @@ def check_runtime(version_info=None, importer=None):
     return []
 
 
+def make_console_safe(streams=None):
+    """
+    UTF-8 でないコンソールで、表せない文字を「?」に置き換えて出すようにする。
+
+    Windows の日本語コンソールは既定で CP932 で、CP932 に無い文字を print すると
+    UnicodeEncodeError で落ちる。ソースの文字は tests/test_windows.py で CP932 に収めているが、
+    課題の件名など Backlog から来る文字（絵文字など）は防げない。落ちるよりは、その文字だけ
+    「?」になる方がよい。コードページ（chcp）は変えない。同じ窓で次に動かすものに影響するため。
+    """
+    for stream in (sys.stdout, sys.stderr) if streams is None else streams:
+        encoding = (getattr(stream, "encoding", None) or "").lower().replace("-", "").replace("_", "")
+        if encoding in ("", "utf8") or not hasattr(stream, "reconfigure"):
+            continue
+        try:
+            stream.reconfigure(errors="replace")
+        except (ValueError, OSError):
+            pass
+
+
 def ensure_runtime():
-    """足りないものがあれば案内を出して終了する"""
+    """足りないものがあれば案内を出して終了する。あわせてコンソールへの出力を安全にする"""
+    make_console_safe()
     problems = check_runtime()
     if problems:
         for line in problems:

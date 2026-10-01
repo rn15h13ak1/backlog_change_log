@@ -145,19 +145,19 @@ def diagnose(client: Client, issue_key: str, *, project_keys: list[str] | None =
     p("前提の確認:")
     for field_name, label in REVERSED_FIELDS:
         if field_counts.get(field_name):
-            p(f"  ✓ {label}の変更は `{field_name}` として返っています")
+            p(f"  OK {label}の変更は `{field_name}` として返っています")
         else:
             notes.append(f"{label}の変更が期間内に 1 件もありませんでした。`{field_name}` で返るかは確かめられて"
                          f"いません。--days を延ばすか、{label}を変えてから再実行してください")
     if type_counts.get(ACT_COMMENTED) or comment_with_text:
         if comment_with_text:
-            p("  ✓ コメントの本文は content.comment.content に入っています")
+            p("  OK コメントの本文は content.comment.content に入っています")
         else:
             problems.append("コメントのアクティビティはあるのに、content.comment.content に本文がありません")
     else:
         notes.append("コメントが期間内に 1 件もなく、コメントの形は確かめられていません")
     if type_counts.get(ACT_MULTI_UPDATED):
-        p(f"  ✓ 一括更新の形: {multi_shapes[0]}")
+        p(f"  OK 一括更新の形: {multi_shapes[0]}")
     else:
         notes.append("一括更新が期間内に 1 件もなく、その形は確かめられていません")
     for what, count in missing_keys.items():
@@ -168,7 +168,7 @@ def diagnose(client: Client, issue_key: str, *, project_keys: list[str] | None =
     for line in notes:
         p(f"  - {line}")
     for line in problems:
-        p(f"  ✗ {line}")
+        p(f"  NG {line}")
     p()
     p("結果: " + ("前提と違う応答があります" if problems else "前提と違う応答はありませんでした"))
     return 1 if problems else 0

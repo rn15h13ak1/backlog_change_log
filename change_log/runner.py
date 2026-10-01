@@ -98,7 +98,7 @@ def run(client: Client, issue_key: str, *, project_keys: list[str] | None = None
     print(f"出力済みの最新の日: {latest.isoformat() if latest else 'なし（初回）'}", file=out)
     not_output = bool(skipped)
     if skipped:
-        print(f"⚠ {_fmt_dates(skipped)} は上限 {MAX_CATCHUP_DAYS} 日を超えたため出力しません。", file=err)
+        print(f"警告: {_fmt_dates(skipped)} は上限 {MAX_CATCHUP_DAYS} 日を超えたため出力しません。", file=err)
 
     # 3〜5. プロジェクトごとに、変更と現在の課題を取る（出力する最初の日の 0:00 まで）
     since = day_start(dates[0]) if dates else day_start(today)
@@ -124,14 +124,14 @@ def run(client: Client, issue_key: str, *, project_keys: list[str] | None = None
             limit = proj.incomplete_since
             incomplete = [d for d in dates if day_start(d) < limit]
             if incomplete:
-                print(f"⚠ {proj.key}: {_fmt_dates(incomplete)} はアクティビティを遡りきれず、"
+                print(f"警告: {proj.key}: {_fmt_dates(incomplete)} はアクティビティを遡りきれず、"
                       "不完全な可能性があるため出力しません。", file=err)
                 dates = [d for d in dates if d not in incomplete]
                 not_output = True
         # 形の違うアクティビティがあった日は、変更が欠けている。
         # 日時も読めなかったものがあれば、どの日のものか分からないため、すべての日を止める。
         if proj.malformed:
-            print(f"⚠ {proj.key}: 想定と違う形のアクティビティが {len(proj.malformed)} 件あり、読み飛ばしました"
+            print(f"警告: {proj.key}: 想定と違う形のアクティビティが {len(proj.malformed)} 件あり、読み飛ばしました"
                   "（check_api.py で応答の形を確かめてください）。", file=err)
             if None in proj.malformed:
                 broken_days = list(dates)
@@ -139,7 +139,7 @@ def run(client: Client, issue_key: str, *, project_keys: list[str] | None = None
                 broken_dates = {jst_date(t) for t in proj.malformed if t is not None}
                 broken_days = [d for d in dates if d in broken_dates]
             if broken_days:
-                print(f"⚠ {proj.key}: {_fmt_dates(broken_days)} は変更が欠けている可能性があるため"
+                print(f"警告: {proj.key}: {_fmt_dates(broken_days)} は変更が欠けている可能性があるため"
                       "出力しません。", file=err)
                 dates = [d for d in dates if d not in broken_days]
                 not_output = True

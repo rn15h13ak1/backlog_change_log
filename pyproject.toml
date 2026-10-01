@@ -29,7 +29,7 @@ testpaths = ["tests"]
 
 [tool.mypy]
 python_version = "3.10"
-files = ["backlog_change_log.py", "change_log"]
+files = ["backlog_change_log.py", "change_log", "scripts"]
 check_untyped_defs = true
 
 [tool.ruff]

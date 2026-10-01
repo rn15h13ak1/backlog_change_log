@@ -134,3 +134,11 @@ cp .env.example .env
 ```bash
 .venv/bin/python -m pytest -q
 ```
+
+本物の Backlog に接続せずに実行例を見るには、偽の Backlog につなぐ `scripts/demo.py` を使います。投稿もしません。
+
+```bash
+.venv/bin/python scripts/demo.py run
+```
+
+`main` にすると入口から設定の読み込みまで通し、`main post` にすると偽物への投稿まで通します。

@@ -21,7 +21,7 @@ dev = [
 ]
 
 [tool.setuptools]
-py-modules = ["backlog_change_log", "check_api"]
+py-modules = ["backlog_change_log", "check_api", "menu"]
 packages = ["change_log"]
 
 [tool.pytest.ini_options]
@@ -29,7 +29,7 @@ testpaths = ["tests"]
 
 [tool.mypy]
 python_version = "3.10"
-files = ["backlog_change_log.py", "check_api.py", "change_log", "scripts"]
+files = ["backlog_change_log.py", "check_api.py", "menu.py", "change_log", "scripts"]
 check_untyped_defs = true
 
 [tool.ruff]
@@ -47,3 +47,4 @@ ignore = [
 [tool.ruff.lint.per-file-ignores]
 "backlog_change_log.py" = ["E402"]
 "check_api.py" = ["E402"]
+"menu.py" = ["E402"]

@@ -20,7 +20,7 @@ from change_log.core import REPO_ROOT
 from change_log.diagnose import diagnose
 
 
-def main(argv: list[str] | None = None) -> int:
+def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="Backlog API の応答が、本ツールの前提どおりかを確かめる")
     parser.add_argument("--config", default=str(REPO_ROOT / "config.yaml"),
                         help="設定ファイルのパス（既定: スクリプトと同じディレクトリの config.yaml）")
@@ -28,7 +28,11 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--max", type=int, default=1000, dest="max_activities",
                         help="読むアクティビティの上限件数（既定: 1000）")
     parser.add_argument("--debug", action="store_true", help="API リクエストを表示する（API キーは表示しない）")
-    args = parser.parse_args(argv)
+    return parser
+
+
+def main(argv: list[str] | None = None) -> int:
+    args = build_parser().parse_args(argv)
 
     config = load_config(args.config)
     client = BacklogClient(config.space_host, config.api_key, ssl_verify=config.ssl_verify,

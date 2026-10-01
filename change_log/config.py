@@ -65,19 +65,27 @@ def dotenv_candidates(config_path: Path | None = None, cwd: Path | None = None) 
     return seen
 
 
-def resolve_api_key(env: Mapping[str, str] | None = None, config_path: Path | None = None,
-                    cwd: Path | None = None) -> str:
+def find_api_key(env: Mapping[str, str] | None = None, config_path: Path | None = None,
+                 cwd: Path | None = None) -> str | None:
     """環境変数 → .env（dotenv_candidates の順）で探す。例の値のままのものは無いものとして扱う"""
     source: Mapping[str, str] = os.environ if env is None else env
     key = source.get(API_KEY_ENV, "")
     if key and key not in PLACEHOLDERS:
         return key
-    candidates = dotenv_candidates(config_path, cwd)
-    for path in candidates:
+    for path in dotenv_candidates(config_path, cwd):
         key = read_dotenv(path).get(API_KEY_ENV, "")
         if key and key not in PLACEHOLDERS:
             return key
-    places = "\n".join(f"    {path}" for path in candidates)
+    return None
+
+
+def resolve_api_key(env: Mapping[str, str] | None = None, config_path: Path | None = None,
+                    cwd: Path | None = None) -> str:
+    """find_api_key と同じ順で探し、見つからなければ探した場所を表示して終了する"""
+    key = find_api_key(env, config_path, cwd)
+    if key:
+        return key
+    places = "\n".join(f"    {path}" for path in dotenv_candidates(config_path, cwd))
     _fail(f"API キーがありません。環境変数 {API_KEY_ENV} か、次のいずれかの .env に設定してください:\n{places}")
     return ""  # _fail は終了する
 

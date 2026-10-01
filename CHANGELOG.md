@@ -5,6 +5,16 @@
 
 ## [Unreleased]
 
+### Changed
+
+- 文書の作りを `../backlog_issue_cloner` に揃えた。README を「主要機能・目次・入門・使い方ガイド・
+  リファレンス・開発者向け」の構成にし、設定項目・CLI オプション・リトライ・Exit code を表にした。
+  「なぜそうなっているか」は新しい `docs/DESIGN.md`（設計仕様書）に、実際の出力は
+  `docs/EXAMPLES.md`（実行例）に分けた。README には使い方だけを書き、設計の説明は再掲しない
+  - 強調（`**`）の両端に半角スペースを入れる体裁も揃えた。対象は README・`docs/`・`CLAUDE.md`。
+    リリース済みの CHANGELOG の節は直していない
+  - 実行例は、偽の Backlog（`tests/fakes.py`）で実際に動かした出力を載せた
+
 ## [0.1.0] - 2026-10-01
 
 ### Added

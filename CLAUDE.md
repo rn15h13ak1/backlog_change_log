@@ -11,28 +11,33 @@
 **確認を取らない分、手順を飛ばさないこと。** 次の順で行う。
 
 1. 変更する
-2. 下の「実装を変えたときに実行する」と「検査」を通す。**指摘が 0 件でなければコミットしない**
+2. 下の「実装を変えたときに実行する」と「検査」を通す。 **指摘が 0 件でなければコミットしない**
 3. `CHANGELOG.md` に追記する（[規約 C](../ws-conventions/README.md#changelogmd-の更新) の「書く／書かない」で判断）
 4. プレフィックスを選ぶ（[規約 A の表](../ws-conventions/README.md#コミットメッセージ)）
-5. コミットする。**1 コミットに複数の修正を詰めない**
+5. コミットする。 **1 コミットに複数の修正を詰めない**
 6. push して、ローカルとリモートが一致することを確かめ、短縮ハッシュを示す
 7. 提案に関わる変更なら [`../proposals/`](../proposals/README.md) も更新する（対応の記録と索引の状態）。
    `proposals/` は Git 管理外で、コミットに含まれないぶん忘れやすい
 
 他のリポジトリへの提案を書くことはあっても、そのリポジトリの履歴は変えない（規約 B）。
 
-## 実装の置き場所
+## 文書の分担
 
-入口は `backlog_change_log.py`（引数と設定の読み込みだけ）。中身は `change_log/` に役割ごとに
-分けてある。入口と同じ名前のパッケージにすると、setuptools と mypy が同名のモジュールを
-取り違えるため、パッケージ名は `change_log` にしている。
+[`../backlog_issue_cloner`](../backlog_issue_cloner/README.md) の文書の作りに揃えている。
 
-入口（`backlog_change_log.py` / `check_api.py`）は、ほかの import より先に
-`change_log/runtime.py` で Python の版と依存を確かめる。**`runtime.py` は 3.9 でも読める書き方に
-保つ**（`str | None` などを使わない）。崩すと、古い Python で案内が出る前に落ちる。
+| 文書 | 書くこと |
+|---|---|
+| `README.md` | 使い方・設定項目・Exit code など、使う人が引くもの |
+| `docs/DESIGN.md` | なぜそうなっているか、どこを触ればよいか、落とし穴。 **使い方は再掲しない** |
+| `docs/EXAMPLES.md` | 偽の Backlog で動かした実際の出力 |
 
-API を呼ぶのは `change_log/client.py` だけ。通しの処理（`runner.py`）はクライアントを
-引数で受け取り、テストでは `tests/fakes.py` の偽のクライアントを渡す。
+**設計判断は `docs/DESIGN.md` に集約する。** 実装の置き場所や依存の向き、`runtime.py` を 3.9 でも
+読める書き方に保つことなども、そちらに書いてある。改修する前に読むこと。
+
+出力の形式を変えたら、`docs/EXAMPLES.md` の出力も作り直す（`scripts/demo.py` か、
+`tests/fakes.py` を使った使い捨てのスクリプトで出す）。
+
+`**` による強調の両端は半角スペースにする（[`docs/DESIGN.md`](docs/DESIGN.md#md-を書くときの体裁)）。
 
 ## 実装を変えたときに実行する
 

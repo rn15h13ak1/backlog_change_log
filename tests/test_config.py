@@ -1,22 +1,61 @@
 import pytest
 
+from change_log import config as config_module
 from change_log.config import load_config, resolve_api_key
 
 
-def test_api_key_from_env_wins(tmp_path):
-    (tmp_path / ".env").write_text("BACKLOG_API_KEY=from-dotenv\n", encoding="utf-8")
-    assert resolve_api_key({"BACKLOG_API_KEY": "from-env"}, tmp_path / ".env") == "from-env"
+@pytest.fixture
+def places(tmp_path, monkeypatch):
+    """設定ファイルの場所・リポジトリ直下・作業ディレクトリを、別々の一時フォルダにする"""
+    dirs = {name: tmp_path / name for name in ("conf", "repo", "cwd")}
+    for d in dirs.values():
+        d.mkdir()
+    monkeypatch.setattr(config_module, "REPO_ROOT", dirs["repo"])
+    return dirs
 
 
-def test_api_key_from_dotenv(tmp_path):
-    (tmp_path / ".env").write_text("# memo\nBACKLOG_API_KEY='abc'\n", encoding="utf-8")
-    assert resolve_api_key({}, tmp_path / ".env") == "abc"
+def _resolve(places, env=None):
+    return resolve_api_key(env or {}, config_path=places["conf"] / "config.yaml", cwd=places["cwd"])
 
 
-def test_api_key_missing_or_placeholder(tmp_path):
-    (tmp_path / ".env").write_text("BACKLOG_API_KEY=YOUR_API_KEY_HERE\n", encoding="utf-8")
+def _dotenv(d, value):
+    (d / ".env").write_text(f"# memo\nBACKLOG_API_KEY='{value}'\n", encoding="utf-8")
+
+
+def test_api_key_from_env_wins(places):
+    _dotenv(places["conf"], "from-dotenv")
+    assert _resolve(places, {"BACKLOG_API_KEY": "from-env"}) == "from-env"
+
+
+def test_dotenv_next_to_config_comes_first(places):
+    for name in ("conf", "repo", "cwd"):
+        _dotenv(places[name], name)
+    assert _resolve(places) == "conf"
+
+
+def test_dotenv_falls_back_to_repo_then_cwd(places):
+    _dotenv(places["cwd"], "cwd")
+    assert _resolve(places) == "cwd"
+    _dotenv(places["repo"], "repo")
+    assert _resolve(places) == "repo"
+
+
+def test_placeholder_is_skipped(places):
+    _dotenv(places["conf"], "YOUR_API_KEY_HERE")
+    _dotenv(places["cwd"], "real")
+    assert _resolve(places, {"BACKLOG_API_KEY": "YOUR_API_KEY_HERE"}) == "real"
+
+
+def test_api_key_missing_lists_searched_places(places, capsys):
     with pytest.raises(SystemExit):
-        resolve_api_key({}, tmp_path / ".env")
+        _resolve(places)
+    err = capsys.readouterr().err
+    assert all(str(places[n] / ".env") in err for n in ("conf", "repo", "cwd"))
+
+
+def test_same_place_is_listed_once(places):
+    from change_log.config import dotenv_candidates
+    assert len(dotenv_candidates(places["repo"] / "config.yaml", places["repo"])) == 1
 
 
 def test_example_config_is_rejected_until_edited(tmp_path):

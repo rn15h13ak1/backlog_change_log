@@ -78,7 +78,7 @@ python3 -m venv .venv
 cp config.example.yaml config.yaml
 ```
 
-API キーは設定ファイルに書かず、環境変数 `BACKLOG_API_KEY` か `.env` に置きます。
+API キーは設定ファイルに書かず、環境変数 `BACKLOG_API_KEY` か `.env` に置きます。`.env` は、設定ファイルと同じ場所 → リポジトリ直下 → 作業ディレクトリの順に探します。見つからないときは、探した場所を表示します。
 
 ```bash
 cp .env.example .env

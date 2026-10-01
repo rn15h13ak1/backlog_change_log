@@ -45,12 +45,39 @@ def read_dotenv(path: Path) -> dict[str, str]:
     return values
 
 
-def resolve_api_key(env: Mapping[str, str] | None = None, dotenv_path: Path | None = None) -> str:
+def dotenv_candidates(config_path: Path | None = None, cwd: Path | None = None) -> list[Path]:
+    """
+    .env を探す場所（重複は除く）。
+
+    設定ファイルと同じ場所 → リポジトリ直下 → 作業ディレクトリ。設定ファイルを別の場所に
+    置いたとき、その隣の .env が読まれないと気付きにくいため、まずそこを見る（backlog_issue_sheet
+    と同じ順）。リポジトリ直下は、従来の置き場所として残す。
+    """
+    places = [config_path.resolve().parent] if config_path else []
+    places += [REPO_ROOT, (cwd or Path.cwd()).resolve()]
+    seen: list[Path] = []
+    for place in places:
+        candidate = place / ".env"
+        if candidate not in seen:
+            seen.append(candidate)
+    return seen
+
+
+def resolve_api_key(env: Mapping[str, str] | None = None, config_path: Path | None = None,
+                    cwd: Path | None = None) -> str:
+    """環境変数 → .env（dotenv_candidates の順）で探す。例の値のままのものは無いものとして扱う"""
     source: Mapping[str, str] = os.environ if env is None else env
-    key = source.get(API_KEY_ENV) or read_dotenv(dotenv_path or REPO_ROOT / ".env").get(API_KEY_ENV, "")
-    if not key or key in PLACEHOLDERS:
-        _fail(f"API キーがありません。環境変数 {API_KEY_ENV} か、.env に設定してください。")
-    return key
+    key = source.get(API_KEY_ENV, "")
+    if key and key not in PLACEHOLDERS:
+        return key
+    candidates = dotenv_candidates(config_path, cwd)
+    for path in candidates:
+        key = read_dotenv(path).get(API_KEY_ENV, "")
+        if key and key not in PLACEHOLDERS:
+            return key
+    places = "\n".join(f"    {path}" for path in candidates)
+    _fail(f"API キーがありません。環境変数 {API_KEY_ENV} か、次のいずれかの .env に設定してください:\n{places}")
+    return ""  # _fail は終了する
 
 
 def load_config(path: str, api_key: str | None = None) -> Config:
@@ -74,5 +101,5 @@ def load_config(path: str, api_key: str | None = None) -> Config:
         base_path=str(backlog.get("base_path") or ""),
         ssl_verify=bool(backlog.get("ssl_verify", True)),
         issue_key=issue_key,
-        api_key=api_key if api_key is not None else resolve_api_key(),
+        api_key=api_key if api_key is not None else resolve_api_key(config_path=p),
     )

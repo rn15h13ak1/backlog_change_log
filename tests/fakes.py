@@ -85,7 +85,7 @@ class FakeClient:
             yield c
 
     def iter_activities_desc(self, project_id, activity_type_ids):
-        yield from sorted(self.activities, key=lambda a: a["created"], reverse=True)
+        yield from sorted(self.activities, key=lambda a: a.get("created") or "9999", reverse=True)
 
     def get_issues_by_ids(self, project_id, issue_ids):
         return [self.issues[i] for i in issue_ids if i in self.issues]

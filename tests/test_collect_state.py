@@ -1,7 +1,7 @@
 from datetime import date, timedelta
 
 from change_log.collect import summarize_day, to_events
-from change_log.core import day_start
+from change_log.core import day_start, jst_date
 from change_log.state import resolve_states
 from tests.fakes import act, change, commented, created, deleted, issue, updated
 
@@ -10,7 +10,8 @@ START, END = day_start(D), day_start(D + timedelta(days=1))
 
 
 def _day(activities, issues=()):
-    events = to_events(activities)
+    events, malformed = to_events(activities)
+    assert malformed == []
     changes = summarize_day(events, START, END)
     resolve_states(changes, events, {i["id"]: i for i in issues}, END)
     return {c.key_id: c for c in changes}
@@ -108,3 +109,17 @@ def test_assignee_unknown_after_later_deletion_without_history():
         deleted("2026-10-01 09:00", 1, 98, "帳票"),
     ])
     assert rows[98].assignee == "不明"
+
+
+def test_malformed_activities_are_skipped_and_reported():
+    good = updated("2026-09-30 10:00", 1, 98, "帳票", [change("status", "a", "b")])
+    no_id = act(2, "2026-09-30 11:00", {"key_id": 5, "summary": "x", "changes": []})
+    bad_changes = act(2, "2026-09-29 11:00", {"id": 2, "changes": "壊れた値"})
+    bad_link = act(14, "2026-09-28 11:00", {"changes": [], "link": [{"key_id": 1}]})
+    no_content = act(1, "2026-09-27 11:00", None)
+    no_created = {"id": 999, "type": 1, "content": {"id": 3}}
+    events, malformed = to_events([good, no_id, bad_changes, bad_link, no_content, no_created])
+    assert [e.issue_id for e in events] == [1]
+    assert sorted(jst_date(t).isoformat() for t in malformed if t) == [
+        "2026-09-27", "2026-09-28", "2026-09-29", "2026-09-30"]
+    assert malformed.count(None) == 1   # 日時の読めないもの

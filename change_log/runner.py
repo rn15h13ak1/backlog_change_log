@@ -4,7 +4,7 @@ from datetime import date, datetime, timedelta
 from typing import Protocol, TextIO
 
 from change_log.collect import Event, fetch_activities, summarize_day, to_events
-from change_log.core import ACT_CREATED, JST, MAX_CATCHUP_DAYS, TARGET_ACTIVITY_TYPES, day_start
+from change_log.core import ACT_CREATED, JST, MAX_CATCHUP_DAYS, TARGET_ACTIVITY_TYPES, day_start, jst_date
 from change_log.marker import decide_target_dates, find_latest_recorded
 from change_log.render import BACKLOG, MARKDOWN, render_day
 from change_log.state import resolve_states
@@ -57,15 +57,13 @@ def run(client: Client, issue_key: str, *, now: datetime | None = None,
     # 3. 変更を取る（出力する最初の日の 0:00 まで。無ければ当日の 0:00 まで）
     since = day_start(dates[0]) if dates else day_start(today)
     fetched = fetch_activities(client.iter_activities_desc(project_id, TARGET_ACTIVITY_TYPES), since)
-    events = [ev for ev in to_events(fetched.activities) if ev.issue_id != record["id"]]
+    all_events, malformed = to_events(fetched.activities)
+    events = [ev for ev in all_events if ev.issue_id != record["id"]]
 
     # ページの端まで読んでも since に届かなかった場合、プロジェクトの履歴がそこで
     # 終わっているのか、取得できる範囲の外にあるのかは区別できない。記録先の課題の
     # 作成が見えていれば、少なくともそこまでの履歴は揃っているとみなす。
-    record_created_seen = any(
-        a.get("type") == ACT_CREATED and (a.get("content") or {}).get("id") == record["id"]
-        for a in fetched.activities
-    )
+    record_created_seen = any(ev.type_id == ACT_CREATED and ev.issue_id == record["id"] for ev in all_events)
     if not fetched.reached and not record_created_seen:
         # 取得できる範囲の端に達した。それより前に始まる日は不完全かもしれないので出力しない
         limit = fetched.oldest or now
@@ -74,6 +72,20 @@ def run(client: Client, issue_key: str, *, now: datetime | None = None,
             print(f"⚠ {_fmt_dates(incomplete)} はアクティビティを遡りきれず、不完全な可能性があるため"
                   "出力しません。", file=err)
             dates = [d for d in dates if d not in incomplete]
+
+    # 形の違うアクティビティがあった日は、変更が欠けているので出力しない。
+    # 日時も読めなかったものがあれば、どの日のものか分からないため、すべての日を止める。
+    if malformed:
+        print(f"⚠ 想定と違う形のアクティビティが {len(malformed)} 件あり、読み飛ばしました"
+              "（check_api.py で応答の形を確かめてください）。", file=err)
+        if None in malformed:
+            broken_days = list(dates)
+        else:
+            broken_dates = {jst_date(t) for t in malformed if t is not None}
+            broken_days = [d for d in dates if d in broken_dates]
+        if broken_days:
+            print(f"⚠ {_fmt_dates(broken_days)} は変更が欠けている可能性があるため出力しません。", file=err)
+            dates = [d for d in dates if d not in broken_days]
 
     # 4〜5. 担当者・件名の逆算に使う、現在の課題
     issue_ids = sorted({ev.issue_id for ev in events})

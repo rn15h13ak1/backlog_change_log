@@ -123,3 +123,23 @@ def test_short_history_is_complete_when_record_creation_is_seen():
     _, _, err = _run(client)
     assert [parse_marker(b).isoformat() for b in client.posted] == ["2026-09-28", "2026-09-29", "2026-09-30"]
     assert err == ""
+
+
+def test_day_with_malformed_activity_is_not_posted():
+    from tests.fakes import act
+    broken = act(2, "2026-09-29 12:00", {"key_id": 5, "summary": "x"})   # content.id が無い
+    client = FakeClient(_base_activities() + [broken], _issues(), comments=[record_comment("対象日: 2026-09-27")])
+    _, _, err = _run(client)
+    assert [parse_marker(b).isoformat() for b in client.posted] == ["2026-09-28", "2026-09-30"]
+    assert "想定と違う形のアクティビティが 1 件" in err
+    assert "2026-09-29 は変更が欠けている可能性" in err
+
+
+def test_undated_malformed_activity_stops_all_days():
+    client = FakeClient(_base_activities(), _issues(), comments=[record_comment("対象日: 2026-09-27")])
+    client.activities.append({"id": 9999, "type": 2, "created": "2099-01-01T00:00:00Z", "content": None})
+    client.activities.append({"id": 9998, "type": 2, "content": {"id": 1}})  # 日時が無い
+    _, out, err = _run(client)
+    assert client.posted == []
+    assert "2026-09-28〜2026-09-30 は変更が欠けている可能性" in err
+    assert "当日の変更" in out   # 当日分の表示は続ける

@@ -190,14 +190,14 @@ Python の版と依存を確かめます。 **`runtime.py` は 3.9 でも読め�
 
 ### 5.11 API キーは config.yaml に書ける。環境変数と .env も読む
 
-当初は [共通規約 C](../../ws-conventions/README.md#設定ファイル) の「資格情報は設定ファイルに書かない」を
-字義どおりに読み、`api_key` を設定ファイルの項目として定義していませんでした。しかし規約の意図は
-**値を Git に入れない** ことで、項目を定義しないことではありませんでした。その結果、
-`config.example.yaml` をコピーして `config.yaml` にキーを書くという、他の Backlog ツール
-（`backlog_report` / `backlog_issue_cloner` / `excel_to_backlog`）と同じ運用が使えなくなっていました。
+[共通規約 C「設定ファイル」](../../ws-conventions/README.md#設定ファイル)は、 **資格情報の値を Git に入れない**
+ことを定め、置き場として追跡しない実体（`config.yaml`）・環境変数・`.env` を挙げています。
+`config.yaml` は `.gitignore` の定型で除外されているので、値はコミットされません。
 
-`config.yaml` は `.gitignore` で除外しているので、値はコミットされません。規約の文言の見直しは
-`../proposals/ws-conventions-config-api-key.md` で提案しています。
+当初は、改定前の規約の文言（「資格情報は設定ファイルに書かない」）を字義どおりに読み、`api_key` を
+設定ファイルの項目として定義していませんでした。その結果、`config.example.yaml` をコピーして
+`config.yaml` にキーを書くという、他の Backlog ツールと同じ運用が使えなくなっていました。
+この件をきっかけに規約が改められました（`../proposals/ws-conventions-config-api-key.md`）。
 
 探す順は「環境変数 → `config.yaml` → `.env`」です。環境変数を先にするのは、定期実行などで
 設定ファイルを書き換えずに差し替えられるようにするためです。`.env` は、すでにそこへ置いた

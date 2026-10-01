@@ -362,7 +362,8 @@ cp config.example.yaml config.yaml
 
 ### API キー
 
-ふつうは `config.yaml` の `backlog.api_key` に書きます（`config.yaml` は `.gitignore` で除外されています）。
+ふつうは `config.yaml` の `backlog.api_key` に書きます（`config.yaml` は `.gitignore` で除外されています。
+[共通規約 C](../ws-conventions/README.md#設定ファイル)）。
 次の順に探し、最初に見つかったものを使います。
 
 1. 環境変数 `BACKLOG_API_KEY` （定期実行などで、設定ファイルを書き換えずに差し替えたいとき）

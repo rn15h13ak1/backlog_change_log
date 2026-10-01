@@ -13,7 +13,10 @@
     規約の意図は **値を Git に入れない** ことで、`config.yaml` は `.gitignore` で除外している。その結果、
     `config.example.yaml` をコピーして `config.yaml` にキーを書くという、`backlog_report` /
     `backlog_issue_cloner` / `excel_to_backlog` と同じ運用が使えなくなっていた（利用者の指摘による）
-  - 規約の文言の見直しを `../proposals/ws-conventions-config-api-key.md` で提案した
+  - 規約の文言の見直しを `../proposals/ws-conventions-config-api-key.md` で提案し、採用された
+    （ws-conventions `b66e33c`）。規約 C は「資格情報の値は Git に入れない」になり、置き場として
+    `config.yaml`・環境変数・`.env` が挙げられた。本リポジトリの作りは改定後の規約にそのまま合うため、
+    `CLAUDE.md` に書いていた逸脱の記録は消した
   - 環境変数と `.env` は引き続き読む。すでに `.env` に置いた人の設定はそのまま動く
   - このコミットで、テストに書いた架空のキー（`secret-in-config`）が個人情報の検査に資格情報として
     報告されたのに、 **そのままコミット・push した。** 検査を `;` でつないでいたため、失敗しても
